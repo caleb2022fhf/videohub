@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VideoHub Admin</title>
+<title>VideoHub Admin Dashboard</title>
 
 <style>
 * {
@@ -20,8 +20,7 @@ body {
 }
 
 header {
-    height: 70px;
-    padding: 0 6%;
+    padding: 20px 6%;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -29,9 +28,9 @@ header {
 }
 
 .logo {
+    color: #ff3c91;
     font-size: 25px;
     font-weight: bold;
-    color: #ff3c91;
 }
 
 header a {
@@ -45,40 +44,35 @@ header a {
     padding: 20px;
 }
 
-h1 {
-    margin-bottom: 10px;
-}
-
 .subtitle {
     color: #999;
-    margin-bottom: 30px;
+    margin: 10px 0 30px;
 }
 
 .form {
     background: #141414;
+    padding: 25px;
     border: 1px solid #292929;
     border-radius: 15px;
-    padding: 25px;
 }
 
 label {
     display: block;
     margin: 20px 0 10px;
-    font-size: 14px;
 }
 
 input, textarea {
     width: 100%;
+    padding: 14px;
+    border-radius: 9px;
+    border: 1px solid #333;
     background: #080808;
     color: white;
-    border: 1px solid #333;
-    border-radius: 9px;
-    padding: 14px;
     outline: none;
 }
 
 textarea {
-    height: 110px;
+    height: 100px;
     resize: vertical;
 }
 
@@ -89,13 +83,13 @@ input:focus, textarea:focus {
 button {
     width: 100%;
     padding: 15px;
-    margin-top: 25px;
+    margin-top: 20px;
     border: none;
     border-radius: 9px;
     background: linear-gradient(90deg, #8134af, #dd2a7b);
     color: white;
-    font-size: 16px;
     font-weight: bold;
+    font-size: 16px;
     cursor: pointer;
 }
 
@@ -103,19 +97,21 @@ button:hover {
     opacity: .85;
 }
 
-#preview {
+.preview {
+    margin-top: 25px;
     display: none;
-    margin-top: 20px;
+}
+
+.preview iframe {
     width: 100%;
-    border-radius: 10px;
-    max-height: 350px;
-    background: black;
+    aspect-ratio: 16/9;
+    border: none;
+    border-radius: 12px;
 }
 
 #message {
     margin-top: 15px;
     color: #ffcc66;
-    font-size: 13px;
 }
 </style>
 </head>
@@ -130,55 +126,110 @@ button:hover {
 <div class="container">
 
     <h1>Admin Dashboard</h1>
-    <p class="subtitle">Manage and upload your videos.</p>
+    <p class="subtitle">Add and manage your YouTube videos.</p>
 
     <div class="form">
 
-        <h2>Upload New Video</h2>
+        <h2>Add New Video</h2>
 
         <label>Video Title</label>
-        <input type="text" id="title" placeholder="Enter video title">
+        <input type="text" id="title"
+        placeholder="Enter video title">
 
         <label>Description</label>
-        <textarea id="description" placeholder="Describe your video"></textarea>
+        <textarea id="description"
+        placeholder="Describe your video"></textarea>
 
-        <label>Select Video</label>
-        <input type="file" id="videoFile" accept="video/*">
+        <label>YouTube Video Link</label>
+        <input type="url" id="youtubeUrl"
+        placeholder="https://www.youtube.com/watch?v=...">
 
-        <video id="preview" controls></video>
+        <div class="preview" id="preview">
+            <h3>Video Preview</h3>
+            <iframe id="player"
+            allowfullscreen
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+            </iframe>
+        </div>
 
-        <label>Thumbnail Image (Optional)</label>
-        <input type="file" id="thumbnail" accept="image/*">
+        <button onclick="previewVideo()">
+            Preview Video
+        </button>
 
-        <button onclick="previewVideo()">Preview Video</button>
+        <button onclick="publishVideo()">
+            Publish Video
+        </button>
 
         <p id="message"></p>
 
     </div>
-
 </div>
 
 <script>
+function getYouTubeID(url) {
+    try {
+        const parsed = new URL(url);
+
+        if (parsed.hostname === "youtu.be") {
+            return parsed.pathname.split("/")[1];
+        }
+
+        if (
+            parsed.hostname === "youtube.com" ||
+            parsed.hostname === "www.youtube.com" ||
+            parsed.hostname === "m.youtube.com"
+        ) {
+            if (parsed.pathname === "/watch") {
+                return parsed.searchParams.get("v");
+            }
+
+            const parts = parsed.pathname.split("/");
+
+            if (["embed", "shorts"].includes(parts[1])) {
+                return parts[2];
+            }
+        }
+    } catch (error) {
+        return null;
+    }
+
+    return null;
+}
+
 function previewVideo() {
-    const file = document.getElementById("videoFile").files[0];
-    const title = document.getElementById("title").value;
+    const url = document.getElementById("youtubeUrl").value.trim();
+    const id = getYouTubeID(url);
     const message = document.getElementById("message");
-    const preview = document.getElementById("preview");
 
-    if (!title || !file) {
-        message.textContent = "Please enter a title and select a video.";
+    if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+        message.textContent = "Enter a valid YouTube video link.";
         return;
     }
 
-    if (!file.type.startsWith("video/")) {
-        message.textContent = "Please select a valid video file.";
+    document.getElementById("player").src =
+        "https://www.youtube.com/embed/" + id;
+
+    document.getElementById("preview").style.display = "block";
+
+    message.textContent = "Video preview is ready.";
+}
+
+function publishVideo() {
+    const title = document.getElementById("title").value.trim();
+    const description = document.getElementById("description").value.trim();
+    const url = document.getElementById("youtubeUrl").value.trim();
+    const id = getYouTubeID(url);
+
+    const message = document.getElementById("message");
+
+    if (!title || !id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+        message.textContent =
+            "Enter a title and a valid YouTube video link.";
         return;
     }
 
-    preview.src = URL.createObjectURL(file);
-    preview.style.display = "block";
-
-    message.textContent = "Video preview ready. Storage connection is coming next.";
+    message.textContent =
+        "Your video details are ready. Database connection is coming next.";
 }
 </script>
 
