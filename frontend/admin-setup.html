@@ -1,0 +1,198 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VideoHub First Admin Setup</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    background: #080808;
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.box {
+    width: 100%;
+    max-width: 420px;
+    background: #141414;
+    border: 1px solid #292929;
+    border-radius: 16px;
+    padding: 30px;
+}
+
+.logo {
+    text-align: center;
+    color: #ff3c91;
+    font-size: 30px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+p {
+    color: #999;
+    text-align: center;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin: 18px 0 9px;
+}
+
+input {
+    width: 100%;
+    padding: 14px;
+    border-radius: 9px;
+    border: 1px solid #333;
+    background: #080808;
+    color: white;
+    outline: none;
+}
+
+input:focus {
+    border-color: #ff3c91;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    margin-top: 25px;
+    border: none;
+    border-radius: 9px;
+    background: linear-gradient(90deg, #8134af, #dd2a7b);
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: .5;
+}
+
+#message {
+    margin-top: 18px;
+    color: #ffcc66;
+    overflow-wrap: anywhere;
+}
+
+a {
+    display: block;
+    color: white;
+    text-align: center;
+    margin-top: 20px;
+    text-decoration: none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+
+    <div class="logo">VideoHub</div>
+
+    <h2>First Admin Setup</h2>
+
+    <p>Create the first administrator account for VideoHub.</p>
+
+    <form id="setupForm">
+
+        <label>Email Address</label>
+        <input type="email" id="email" required placeholder="Admin email">
+
+        <label>Password</label>
+        <input type="password" id="password" required minlength="8"
+        placeholder="At least 8 characters">
+
+        <button type="submit" id="setupButton">
+            Create Admin Account
+        </button>
+
+    </form>
+
+    <div id="message"></div>
+
+    <a href="admin-login.html">Already have an account? Login</a>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+
+<script>
+const form = document.getElementById("setupForm");
+const message = document.getElementById("message");
+const button = document.getElementById("setupButton");
+
+form.addEventListener("submit", async function(event) {
+    event.preventDefault();
+
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    button.disabled = true;
+    button.textContent = "Creating account...";
+    message.textContent = "";
+
+    try {
+        const { data, error } =
+            await window.supabaseClient.auth.signUp({
+                email: email,
+                password: password
+            });
+
+        if (error) throw error;
+
+        if (!data.session) {
+            message.textContent =
+                "Account created. Check your email and confirm your address. Then login using Admin Login.";
+            return;
+        }
+
+        const { data: isAdmin, error: adminError } =
+            await window.supabaseClient.rpc("claim_first_video_admin");
+
+        if (adminError) throw adminError;
+
+        if (isAdmin !== true) {
+            await window.supabaseClient.auth.signOut();
+            throw new Error("This account could not become the first admin.");
+        }
+
+        message.textContent = "First admin created successfully!";
+
+        setTimeout(function() {
+            window.location.href = "admin.html";
+        }, 1500);
+
+    } catch (error) {
+        message.textContent = "Setup failed: " + error.message;
+    } finally {
+        button.disabled = false;
+        button.textContent = "Create Admin Account";
+    }
+});
+</script>
+
+</body>
+</html>
