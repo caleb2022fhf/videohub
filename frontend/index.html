@@ -4,7 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>VideoHub - Watch Videos</title>
+
 <style>
 * {
     margin: 0;
@@ -18,286 +20,577 @@ body {
     font-family: Arial, sans-serif;
 }
 
-#splash {
-    position: fixed;
-    inset: 0;
-    background: #080808;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    transition: opacity .6s ease;
-}
-
-.logo {
-    width: 90px;
-    height: 90px;
-    border-radius: 27px;
-    background: linear-gradient(135deg, #8134af, #dd2a7b, #feda77);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 35px #dd2a7b66;
-}
-
-.logo-inner {
-    width: 70px;
-    height: 70px;
-    border: 3px solid white;
-    border-radius: 21px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.play {
-    width: 0;
-    height: 0;
-    border-top: 12px solid transparent;
-    border-bottom: 12px solid transparent;
-    border-left: 19px solid white;
-    margin-left: 5px;
-}
-
-#splash h1 {
-    margin-top: 20px;
-    font-size: 32px;
-    letter-spacing: 2px;
-}
-
-#splash p {
-    margin-top: 8px;
-    color: #aaa;
-    font-size: 11px;
-    letter-spacing: 3px;
-}
-
 header {
-    height: 75px;
-    padding: 0 6%;
+    background: #111;
+    border-bottom: 1px solid #292929;
+    padding: 18px 6%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid #222;
+    gap: 20px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 24px;
-    font-weight: bold;
+.logo {
     color: #ff3c91;
+    font-size: 28px;
+    font-weight: bold;
 }
 
-.small-logo {
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #8134af, #dd2a7b, #feda77);
-    display: grid;
-    place-items: center;
+.search-box {
+    flex: 1;
+    max-width: 500px;
 }
 
-.small-logo .play {
-    border-top-width: 7px;
-    border-bottom-width: 7px;
-    border-left-width: 11px;
-}
-
-nav {
-    display: flex;
-    gap: 25px;
-}
-
-nav a {
-    text-decoration: none;
+.search-box input {
+    width: 100%;
+    padding: 13px 18px;
+    background: #080808;
     color: white;
+    border: 1px solid #333;
+    border-radius: 25px;
+    outline: none;
+    font-size: 15px;
+}
+
+.search-box input:focus {
+    border-color: #ff3c91;
+}
+
+.admin-link {
+    color: white;
+    text-decoration: none;
+    background: #222;
+    padding: 11px 18px;
+    border-radius: 8px;
     font-size: 14px;
 }
 
-nav a:hover {
-    color: #ff3c91;
+.admin-link:hover {
+    background: #ff3c91;
 }
 
 .hero {
-    padding: 55px 6% 30px;
+    padding: 45px 6% 25px;
 }
 
-.hero h2 {
+.hero h1 {
     font-size: 32px;
     margin-bottom: 12px;
 }
 
 .hero p {
-    color: #aaa;
-}
-
-.search {
-    margin-top: 25px;
-    max-width: 500px;
-}
-
-.search input {
-    width: 100%;
-    padding: 15px;
-    border: 1px solid #333;
-    border-radius: 12px;
-    background: #151515;
-    color: white;
-    outline: none;
+    color: #999;
+    line-height: 1.6;
 }
 
 .section {
-    padding: 25px 6%;
+    padding: 20px 6% 50px;
 }
 
-.section h2 {
+.section-title {
+    font-size: 22px;
     margin-bottom: 25px;
 }
 
-.videos {
+.video-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 22px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 25px;
 }
 
 .video-card {
-    background: #151515;
-    border-radius: 13px;
-    overflow: hidden;
+    background: #141414;
     border: 1px solid #252525;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: .2s;
+}
+
+.video-card:hover {
+    transform: translateY(-4px);
+    border-color: #ff3c91;
 }
 
 .thumbnail {
-    height: 145px;
-    background: #202020;
-    display: grid;
-    place-items: center;
-    color: #777;
-    font-size: 35px;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #222;
+    position: relative;
+    overflow: hidden;
+}
+
+.thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.play-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 60, 145, .9);
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 22px;
 }
 
 .video-info {
-    padding: 15px;
+    padding: 16px;
 }
 
 .video-info h3 {
-    font-size: 16px;
-    margin-bottom: 8px;
+    font-size: 17px;
+    margin-bottom: 9px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
 .video-info p {
-    color: #888;
-    font-size: 12px;
+    color: #999;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
 }
 
-.empty {
-    color: #777;
-    padding: 20px 0;
+.player-section {
+    display: none;
+    padding: 25px 6%;
+}
+
+.player-section.active {
+    display: block;
+}
+
+.player-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.player-header h2 {
+    font-size: 20px;
+}
+
+.close-player {
+    background: #292929;
+    border: none;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.close-player:hover {
+    background: #ff3c91;
+}
+
+.video-player {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.video-player iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.player-description {
+    color: #aaa;
+    line-height: 1.6;
+    margin-top: 15px;
+    overflow-wrap: anywhere;
+}
+
+.status {
+    text-align: center;
+    color: #999;
+    padding: 45px 15px;
+    grid-column: 1 / -1;
 }
 
 footer {
-    margin-top: 60px;
-    padding: 25px;
+    background: #111;
+    border-top: 1px solid #292929;
     text-align: center;
+    padding: 25px;
     color: #777;
-    border-top: 1px solid #222;
     font-size: 13px;
 }
 
-@media(max-width:600px) {
+@media(max-width: 600px) {
     header {
-        padding: 0 15px;
+        padding: 15px 5%;
     }
 
-    nav {
-        gap: 12px;
+    .logo {
+        font-size: 23px;
     }
 
-    nav a {
-        font-size: 12px;
-    }
-
-    .hero h2 {
+    .hero h1 {
         font-size: 25px;
+    }
+
+    .section {
+        padding-left: 5%;
+        padding-right: 5%;
+    }
+
+    .video-grid {
+        grid-template-columns: 1fr;
     }
 }
 </style>
 </head>
+
 <body>
 
-<div id="splash">
-    <div class="logo">
-        <div class="logo-inner">
-            <div class="play"></div>
-        </div>
-    </div>
-    <h1>VideoHub</h1>
-    <p>WATCH · DISCOVER · SHARE</p>
-</div>
-
 <header>
-    <div class="brand">
-        <div class="small-logo">
-            <div class="play"></div>
-        </div>
-        VideoHub
+
+    <div class="logo">VideoHub</div>
+
+    <div class="search-box">
+        <input
+            type="search"
+            id="searchInput"
+            placeholder="Search videos..."
+        >
     </div>
 
-    <nav>
-        <a href="index.html">Home</a>
-        <a href="#videos">Videos</a>
-    </nav>
+    <a href="admin-login.html" class="admin-link">
+        Admin
+    </a>
+
 </header>
 
 <section class="hero">
-    <h2>Discover Amazing Videos</h2>
-    <p>Watch and discover videos from VideoHub.</p>
 
-    <div class="search">
-        <input type="search" id="searchInput"
-        placeholder="Search videos...">
-    </div>
+    <h1>Discover Amazing Videos</h1>
+
+    <p>
+        Watch your favorite videos anytime, anywhere.
+        Explore the latest videos on VideoHub.
+    </p>
+
 </section>
 
-<section class="section" id="videos">
-    <h2>Latest Videos</h2>
+<section class="player-section" id="playerSection">
 
-    <div class="videos" id="videoList">
-        <p class="empty">No videos available yet.</p>
+    <div class="player-header">
+
+        <h2 id="playerTitle">Now Playing</h2>
+
+        <button class="close-player" id="closePlayer">
+            Close Video
+        </button>
+
     </div>
+
+    <div class="video-player" id="videoPlayer"></div>
+
+    <p class="player-description" id="playerDescription"></p>
+
+</section>
+
+<section class="section">
+
+    <h2 class="section-title">Latest Videos</h2>
+
+    <div class="video-grid" id="videoGrid">
+
+        <div class="status">Loading videos...</div>
+
+    </div>
+
 </section>
 
 <footer>
     © 2026 VideoHub. All rights reserved.
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+
 <script>
-window.addEventListener("load", function() {
-    setTimeout(function() {
-        const splash = document.getElementById("splash");
-        splash.style.opacity = "0";
+const videoGrid = document.getElementById("videoGrid");
+const searchInput = document.getElementById("searchInput");
 
-        setTimeout(function() {
-            splash.style.display = "none";
-        }, 600);
+const playerSection = document.getElementById("playerSection");
+const videoPlayer = document.getElementById("videoPlayer");
+const playerTitle = document.getElementById("playerTitle");
+const playerDescription = document.getElementById("playerDescription");
+const closePlayer = document.getElementById("closePlayer");
 
-    }, 2000);
-});
+let allVideos = [];
 
-document.getElementById("searchInput")
-.addEventListener("input", function() {
-    const search = this.value.toLowerCase();
+function getYouTubeID(url) {
 
-    document.querySelectorAll(".video-card")
-    .forEach(function(card) {
-        card.style.display =
-        card.innerText.toLowerCase().includes(search)
-        ? "block" : "none";
+    try {
+        const parsedURL = new URL(url);
+
+        let videoID = "";
+
+        if (parsedURL.hostname === "youtu.be" ||
+            parsedURL.hostname.endsWith(".youtu.be")) {
+
+            videoID = parsedURL.pathname.split("/")[1];
+
+        } else if (
+            parsedURL.hostname === "youtube.com" ||
+            parsedURL.hostname.endsWith(".youtube.com")
+        ) {
+
+            if (parsedURL.pathname === "/watch") {
+                videoID = parsedURL.searchParams.get("v");
+
+            } else {
+                const parts = parsedURL.pathname.split("/");
+                const typeIndex = parts.findIndex(part =>
+                    ["embed", "shorts", "live"].includes(part)
+                );
+
+                if (typeIndex !== -1) {
+                    videoID = parts[typeIndex + 1];
+                }
+            }
+        }
+
+        if (videoID && /^[a-zA-Z0-9_-]{11}$/.test(videoID)) {
+            return videoID;
+        }
+
+        return null;
+
+    } catch {
+        return null;
+    }
+}
+
+function getThumbnail(video) {
+
+    if (video.thumbnail_url) {
+        try {
+            const thumbnailURL = new URL(video.thumbnail_url);
+
+            if (
+                thumbnailURL.protocol === "https:" &&
+                (
+                    thumbnailURL.hostname === "i.ytimg.com" ||
+                    thumbnailURL.hostname === "img.youtube.com"
+                )
+            ) {
+                return thumbnailURL.href;
+            }
+        } catch {
+            // Use the YouTube thumbnail if the custom URL is invalid.
+        }
+    }
+
+    const videoID = getYouTubeID(video.youtube_url);
+
+    if (!videoID) return "";
+
+    return "https://img.youtube.com/vi/" + videoID + "/hqdefault.jpg";
+}
+
+function createVideoCard(video) {
+
+    const videoID = getYouTubeID(video.youtube_url);
+
+    if (!videoID) return null;
+
+    const card = document.createElement("div");
+    card.className = "video-card";
+
+    const thumbnail = document.createElement("div");
+    thumbnail.className = "thumbnail";
+
+    const image = document.createElement("img");
+    image.src = getThumbnail(video);
+    image.alt = video.title || "Video thumbnail";
+    image.loading = "lazy";
+
+    image.onerror = function() {
+        image.onerror = null;
+        image.src = "https://img.youtube.com/vi/" +
+            videoID + "/hqdefault.jpg";
+    };
+
+    const playIcon = document.createElement("div");
+    playIcon.className = "play-icon";
+    playIcon.textContent = "▶";
+
+    thumbnail.appendChild(image);
+    thumbnail.appendChild(playIcon);
+
+    const info = document.createElement("div");
+    info.className = "video-info";
+
+    const title = document.createElement("h3");
+    title.textContent = video.title || "Untitled Video";
+
+    const description = document.createElement("p");
+    description.textContent = video.description || "Watch this video on VideoHub.";
+
+    info.appendChild(title);
+    info.appendChild(description);
+
+    card.appendChild(thumbnail);
+    card.appendChild(info);
+
+    card.addEventListener("click", function() {
+        playVideo(video);
     });
+
+    return card;
+}
+
+function playVideo(video) {
+
+    const videoID = getYouTubeID(video.youtube_url);
+
+    if (!videoID) {
+        alert("This YouTube video link is invalid.");
+        return;
+    }
+
+    const iframe = document.createElement("iframe");
+
+    iframe.src = "https://www.youtube-nocookie.com/embed/" +
+        videoID + "?autoplay=1&rel=0";
+
+    iframe.title = video.title || "VideoHub video";
+    iframe.allow =
+        "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+    iframe.allowFullscreen = true;
+
+    videoPlayer.replaceChildren(iframe);
+
+    playerTitle.textContent = video.title || "Now Playing";
+    playerDescription.textContent =
+        video.description || "Enjoy watching this video.";
+
+    playerSection.classList.add("active");
+
+    playerSection.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+}
+
+function closeVideo() {
+
+    videoPlayer.replaceChildren();
+    playerSection.classList.remove("active");
+}
+
+closePlayer.addEventListener("click", closeVideo);
+
+function displayVideos(videos) {
+
+    videoGrid.replaceChildren();
+
+    if (!videos.length) {
+
+        const empty = document.createElement("div");
+        empty.className = "status";
+        empty.textContent = "No videos found.";
+
+        videoGrid.appendChild(empty);
+        return;
+    }
+
+    videos.forEach(function(video) {
+
+        const card = createVideoCard(video);
+
+        if (card) {
+            videoGrid.appendChild(card);
+        }
+
+    });
+
+    if (!videoGrid.children.length) {
+
+        const empty = document.createElement("div");
+        empty.className = "status";
+        empty.textContent = "No valid YouTube videos available.";
+
+        videoGrid.appendChild(empty);
+    }
+}
+
+async function loadVideos() {
+
+    videoGrid.innerHTML =
+        '<div class="status">Loading videos...</div>';
+
+    try {
+
+        const { data, error } = await window.supabaseClient
+            .from("videos")
+            .select("id, title, description, youtube_url, thumbnail_url, created_at")
+            .eq("published", true)
+            .order("created_at", { ascending: false });
+
+        if (error) {
+            throw error;
+        }
+
+        allVideos = data || [];
+
+        displayVideos(allVideos);
+
+    } catch (error) {
+
+        console.error("Video loading error:", error);
+
+        videoGrid.replaceChildren();
+
+        const errorMessage = document.createElement("div");
+        errorMessage.className = "status";
+        errorMessage.textContent =
+            "Unable to load videos. Please refresh the page and try again.";
+
+        videoGrid.appendChild(errorMessage);
+    }
+}
+
+searchInput.addEventListener("input", function() {
+
+    const searchTerm = searchInput.value.toLowerCase().trim();
+
+    const filteredVideos = allVideos.filter(function(video) {
+
+        const title = (video.title || "").toLowerCase();
+        const description = (video.description || "").toLowerCase();
+
+        return title.includes(searchTerm) ||
+            description.includes(searchTerm);
+
+    });
+
+    displayVideos(filteredVideos);
 });
+
+loadVideos();
 </script>
 
 </body>
