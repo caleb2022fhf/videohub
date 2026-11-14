@@ -1,0 +1,304 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VideoHub - Watch Videos</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #080808;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+#splash {
+    position: fixed;
+    inset: 0;
+    background: #080808;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    transition: opacity .6s ease;
+}
+
+.logo {
+    width: 90px;
+    height: 90px;
+    border-radius: 27px;
+    background: linear-gradient(135deg, #8134af, #dd2a7b, #feda77);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 35px #dd2a7b66;
+}
+
+.logo-inner {
+    width: 70px;
+    height: 70px;
+    border: 3px solid white;
+    border-radius: 21px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.play {
+    width: 0;
+    height: 0;
+    border-top: 12px solid transparent;
+    border-bottom: 12px solid transparent;
+    border-left: 19px solid white;
+    margin-left: 5px;
+}
+
+#splash h1 {
+    margin-top: 20px;
+    font-size: 32px;
+    letter-spacing: 2px;
+}
+
+#splash p {
+    margin-top: 8px;
+    color: #aaa;
+    font-size: 11px;
+    letter-spacing: 3px;
+}
+
+header {
+    height: 75px;
+    padding: 0 6%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #222;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #ff3c91;
+}
+
+.small-logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #8134af, #dd2a7b, #feda77);
+    display: grid;
+    place-items: center;
+}
+
+.small-logo .play {
+    border-top-width: 7px;
+    border-bottom-width: 7px;
+    border-left-width: 11px;
+}
+
+nav {
+    display: flex;
+    gap: 25px;
+}
+
+nav a {
+    text-decoration: none;
+    color: white;
+    font-size: 14px;
+}
+
+nav a:hover {
+    color: #ff3c91;
+}
+
+.hero {
+    padding: 55px 6% 30px;
+}
+
+.hero h2 {
+    font-size: 32px;
+    margin-bottom: 12px;
+}
+
+.hero p {
+    color: #aaa;
+}
+
+.search {
+    margin-top: 25px;
+    max-width: 500px;
+}
+
+.search input {
+    width: 100%;
+    padding: 15px;
+    border: 1px solid #333;
+    border-radius: 12px;
+    background: #151515;
+    color: white;
+    outline: none;
+}
+
+.section {
+    padding: 25px 6%;
+}
+
+.section h2 {
+    margin-bottom: 25px;
+}
+
+.videos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 22px;
+}
+
+.video-card {
+    background: #151515;
+    border-radius: 13px;
+    overflow: hidden;
+    border: 1px solid #252525;
+}
+
+.thumbnail {
+    height: 145px;
+    background: #202020;
+    display: grid;
+    place-items: center;
+    color: #777;
+    font-size: 35px;
+}
+
+.video-info {
+    padding: 15px;
+}
+
+.video-info h3 {
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.video-info p {
+    color: #888;
+    font-size: 12px;
+}
+
+.empty {
+    color: #777;
+    padding: 20px 0;
+}
+
+footer {
+    margin-top: 60px;
+    padding: 25px;
+    text-align: center;
+    color: #777;
+    border-top: 1px solid #222;
+    font-size: 13px;
+}
+
+@media(max-width:600px) {
+    header {
+        padding: 0 15px;
+    }
+
+    nav {
+        gap: 12px;
+    }
+
+    nav a {
+        font-size: 12px;
+    }
+
+    .hero h2 {
+        font-size: 25px;
+    }
+}
+</style>
+</head>
+<body>
+
+<div id="splash">
+    <div class="logo">
+        <div class="logo-inner">
+            <div class="play"></div>
+        </div>
+    </div>
+    <h1>VideoHub</h1>
+    <p>WATCH · DISCOVER · SHARE</p>
+</div>
+
+<header>
+    <div class="brand">
+        <div class="small-logo">
+            <div class="play"></div>
+        </div>
+        VideoHub
+    </div>
+
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="#videos">Videos</a>
+    </nav>
+</header>
+
+<section class="hero">
+    <h2>Discover Amazing Videos</h2>
+    <p>Watch and discover videos from VideoHub.</p>
+
+    <div class="search">
+        <input type="search" id="searchInput"
+        placeholder="Search videos...">
+    </div>
+</section>
+
+<section class="section" id="videos">
+    <h2>Latest Videos</h2>
+
+    <div class="videos" id="videoList">
+        <p class="empty">No videos available yet.</p>
+    </div>
+</section>
+
+<footer>
+    © 2026 VideoHub. All rights reserved.
+</footer>
+
+<script>
+window.addEventListener("load", function() {
+    setTimeout(function() {
+        const splash = document.getElementById("splash");
+        splash.style.opacity = "0";
+
+        setTimeout(function() {
+            splash.style.display = "none";
+        }, 600);
+
+    }, 2000);
+});
+
+document.getElementById("searchInput")
+.addEventListener("input", function() {
+    const search = this.value.toLowerCase();
+
+    document.querySelectorAll(".video-card")
+    .forEach(function(card) {
+        card.style.display =
+        card.innerText.toLowerCase().includes(search)
+        ? "block" : "none";
+    });
+});
+</script>
+
+</body>
+</html>
