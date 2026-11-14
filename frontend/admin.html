@@ -38,6 +38,13 @@ header a {
     text-decoration: none;
 }
 
+#logoutButton {
+    width: auto;
+    padding: 10px 18px;
+    margin: 0;
+    background: #292929;
+}
+
 .container {
     max-width: 750px;
     margin: 45px auto;
@@ -119,6 +126,10 @@ button:disabled {
     color: #ffcc66;
     line-height: 1.5;
 }
+
+#dashboardContent {
+    display: none;
+}
 </style>
 </head>
 
@@ -126,10 +137,13 @@ button:disabled {
 
 <header>
     <div class="logo">VideoHub</div>
-    <a href="index.html">← Back to Website</a>
+    <div>
+        <a href="index.html">← Back to Website</a>
+        <button type="button" id="logoutButton">Logout</button>
+    </div>
 </header>
 
-<div class="container">
+<div class="container" id="dashboardContent">
 
     <h1>Admin Dashboard</h1>
     <p class="subtitle">Add and manage your YouTube videos.</p>
@@ -154,11 +168,11 @@ button:disabled {
             </iframe>
         </div>
 
-        <button type="button" onclick="previewVideo()">
+        <button type="button" id="previewButton">
             Preview Video
         </button>
 
-        <button type="button" id="publishButton" onclick="publishVideo()">
+        <button type="button" id="publishButton">
             Publish Video
         </button>
 
@@ -171,6 +185,48 @@ button:disabled {
 <script src="supabase.js"></script>
 
 <script>
+const dashboard = document.getElementById("dashboardContent");
+const message = document.getElementById("message");
+const logoutButton = document.getElementById("logoutButton");
+
+async function checkAdminAccess() {
+    dashboard.style.display = "none";
+
+    if (!window.supabaseClient) {
+        message.textContent = "Supabase connection is missing.";
+        return;
+    }
+
+    try {
+        const { data: { session }, error } =
+            await window.supabaseClient.auth.getSession();
+
+        if (error || !session) {
+            window.location.replace("admin-login.html");
+            return;
+        }
+
+        const { data: isAdmin, error: adminError } =
+            await window.supabaseClient.rpc("is_video_admin");
+
+        if (adminError || isAdmin !== true) {
+            await window.supabaseClient.auth.signOut();
+            window.location.replace("admin-login.html");
+            return;
+        }
+
+        dashboard.style.display = "block";
+
+    } catch (error) {
+        message.textContent = "Could not verify admin access.";
+    }
+}
+
+logoutButton.addEventListener("click", async function() {
+    await window.supabaseClient.auth.signOut();
+    window.location.replace("admin-login.html");
+});
+
 function getYouTubeID(url) {
     try {
         const parsed = new URL(url);
@@ -201,7 +257,6 @@ function getYouTubeID(url) {
 function previewVideo() {
     const url = document.getElementById("youtubeUrl").value.trim();
     const id = getYouTubeID(url);
-    const message = document.getElementById("message");
 
     if (!id) {
         message.textContent = "Enter a valid YouTube video link.";
@@ -221,16 +276,10 @@ async function publishVideo() {
     const url = document.getElementById("youtubeUrl").value.trim();
     const id = getYouTubeID(url);
 
-    const message = document.getElementById("message");
     const button = document.getElementById("publishButton");
 
     if (!title || !id) {
         message.textContent = "Enter a title and a valid YouTube video link.";
-        return;
-    }
-
-    if (!window.supabaseClient) {
-        message.textContent = "Supabase connection is missing. Check supabase.js.";
         return;
     }
 
@@ -241,7 +290,22 @@ async function publishVideo() {
     const thumbnail = "https://img.youtube.com/vi/" + id + "/hqdefault.jpg";
 
     try {
-        const { data, error } = await window.supabaseClient
+        const { data: { session } } =
+            await window.supabaseClient.auth.getSession();
+
+        if (!session) {
+            window.location.replace("admin-login.html");
+            return;
+        }
+
+        const { data: isAdmin, error: adminError } =
+            await window.supabaseClient.rpc("is_video_admin");
+
+        if (adminError || isAdmin !== true) {
+            throw new Error("You are not authorized to publish videos.");
+        }
+
+        const { error } = await window.supabaseClient
             .from("videos")
             .insert([{
                 title: title,
@@ -249,8 +313,7 @@ async function publishVideo() {
                 youtube_url: url,
                 thumbnail_url: thumbnail,
                 published: true
-            }])
-            .select();
+            }]);
 
         if (error) {
             throw error;
@@ -265,13 +328,17 @@ async function publishVideo() {
         document.getElementById("player").src = "";
 
     } catch (error) {
-        console.error(error);
         message.textContent = "Publishing failed: " + error.message;
+    } finally {
+        button.disabled = false;
+        button.textContent = "Publish Video";
     }
-
-    button.disabled = false;
-    button.textContent = "Publish Video";
 }
+
+document.getElementById("previewButton").addEventListener("click", previewVideo);
+document.getElementById("publishButton").addEventListener("click", publishVideo);
+
+checkAdminAccess();
 </script>
 
 </body>
