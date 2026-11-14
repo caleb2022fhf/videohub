@@ -165,6 +165,10 @@ loginForm.addEventListener("submit", async function(event) {
     message.textContent = "";
 
     try {
+        if (!window.supabaseClient) {
+            throw new Error("Supabase connection is missing.");
+        }
+
         const { data, error } =
             await window.supabaseClient.auth.signInWithPassword({
                 email: email,
@@ -175,7 +179,22 @@ loginForm.addEventListener("submit", async function(event) {
             throw error;
         }
 
-        window.location.href = "admin.html";
+        const { data: isAdmin, error: adminError } =
+            await window.supabaseClient.rpc("claim_first_video_admin");
+
+        if (adminError) {
+            await window.supabaseClient.auth.signOut();
+            throw adminError;
+        }
+
+        if (isAdmin !== true) {
+            await window.supabaseClient.auth.signOut();
+            throw new Error("You are not authorized to access the admin dashboard.");
+        }
+
+        message.textContent = "Login successful!";
+
+        window.location.replace("admin.html");
 
     } catch (error) {
         message.textContent = error.message;
