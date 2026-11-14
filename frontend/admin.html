@@ -1,0 +1,186 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VideoHub Admin</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #080808;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+header {
+    height: 70px;
+    padding: 0 6%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #252525;
+}
+
+.logo {
+    font-size: 25px;
+    font-weight: bold;
+    color: #ff3c91;
+}
+
+header a {
+    color: white;
+    text-decoration: none;
+}
+
+.container {
+    max-width: 750px;
+    margin: 45px auto;
+    padding: 20px;
+}
+
+h1 {
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: #999;
+    margin-bottom: 30px;
+}
+
+.form {
+    background: #141414;
+    border: 1px solid #292929;
+    border-radius: 15px;
+    padding: 25px;
+}
+
+label {
+    display: block;
+    margin: 20px 0 10px;
+    font-size: 14px;
+}
+
+input, textarea {
+    width: 100%;
+    background: #080808;
+    color: white;
+    border: 1px solid #333;
+    border-radius: 9px;
+    padding: 14px;
+    outline: none;
+}
+
+textarea {
+    height: 110px;
+    resize: vertical;
+}
+
+input:focus, textarea:focus {
+    border-color: #ff3c91;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    margin-top: 25px;
+    border: none;
+    border-radius: 9px;
+    background: linear-gradient(90deg, #8134af, #dd2a7b);
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    opacity: .85;
+}
+
+#preview {
+    display: none;
+    margin-top: 20px;
+    width: 100%;
+    border-radius: 10px;
+    max-height: 350px;
+    background: black;
+}
+
+#message {
+    margin-top: 15px;
+    color: #ffcc66;
+    font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="logo">VideoHub</div>
+    <a href="index.html">← Back to Website</a>
+</header>
+
+<div class="container">
+
+    <h1>Admin Dashboard</h1>
+    <p class="subtitle">Manage and upload your videos.</p>
+
+    <div class="form">
+
+        <h2>Upload New Video</h2>
+
+        <label>Video Title</label>
+        <input type="text" id="title" placeholder="Enter video title">
+
+        <label>Description</label>
+        <textarea id="description" placeholder="Describe your video"></textarea>
+
+        <label>Select Video</label>
+        <input type="file" id="videoFile" accept="video/*">
+
+        <video id="preview" controls></video>
+
+        <label>Thumbnail Image (Optional)</label>
+        <input type="file" id="thumbnail" accept="image/*">
+
+        <button onclick="previewVideo()">Preview Video</button>
+
+        <p id="message"></p>
+
+    </div>
+
+</div>
+
+<script>
+function previewVideo() {
+    const file = document.getElementById("videoFile").files[0];
+    const title = document.getElementById("title").value;
+    const message = document.getElementById("message");
+    const preview = document.getElementById("preview");
+
+    if (!title || !file) {
+        message.textContent = "Please enter a title and select a video.";
+        return;
+    }
+
+    if (!file.type.startsWith("video/")) {
+        message.textContent = "Please select a valid video file.";
+        return;
+    }
+
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = "block";
+
+    message.textContent = "Video preview ready. Storage connection is coming next.";
+}
+</script>
+
+</body>
+</html>
