@@ -72,6 +72,11 @@ input:focus {
     border-color: #ff3c91;
 }
 
+input[readonly] {
+    color: #aaa;
+    cursor: not-allowed;
+}
+
 button {
     width: 100%;
     padding: 15px;
@@ -87,12 +92,15 @@ button {
 
 button:disabled {
     opacity: .5;
+    cursor: not-allowed;
 }
 
 #message {
     margin-top: 18px;
     color: #ffcc66;
+    line-height: 1.5;
     overflow-wrap: anywhere;
+    text-align: center;
 }
 
 a {
@@ -101,6 +109,10 @@ a {
     text-align: center;
     margin-top: 20px;
     text-decoration: none;
+}
+
+a:hover {
+    color: #ff3c91;
 }
 </style>
 </head>
@@ -118,11 +130,23 @@ a {
     <form id="setupForm">
 
         <label>Email Address</label>
-        <input type="email" id="email" required placeholder="Admin email">
+        <input
+            type="email"
+            id="email"
+            value="aimecaleb05@gmail.com"
+            readonly
+            required
+        >
 
-        <label>Password</label>
-        <input type="password" id="password" required minlength="8"
-        placeholder="At least 8 characters">
+        <label>New Password</label>
+        <input
+            type="password"
+            id="password"
+            required
+            minlength="8"
+            autocomplete="new-password"
+            placeholder="Create a new password"
+        >
 
         <button type="submit" id="setupButton">
             Create Admin Account
@@ -150,6 +174,11 @@ form.addEventListener("submit", async function(event) {
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
 
+    if (password.length < 8) {
+        message.textContent = "Password must contain at least 8 characters.";
+        return;
+    }
+
     button.disabled = true;
     button.textContent = "Creating account...";
     message.textContent = "";
@@ -161,28 +190,33 @@ form.addEventListener("submit", async function(event) {
                 password: password
             });
 
-        if (error) throw error;
+        if (error) {
+            throw error;
+        }
 
         if (!data.session) {
             message.textContent =
-                "Account created. Check your email and confirm your address. Then login using Admin Login.";
+                "Account created! Check your email and confirm your address. Then go to Admin Login and sign in.";
             return;
         }
 
         const { data: isAdmin, error: adminError } =
             await window.supabaseClient.rpc("claim_first_video_admin");
 
-        if (adminError) throw adminError;
+        if (adminError) {
+            await window.supabaseClient.auth.signOut();
+            throw adminError;
+        }
 
         if (isAdmin !== true) {
             await window.supabaseClient.auth.signOut();
-            throw new Error("This account could not become the first admin.");
+            throw new Error("This account is not authorized to become an admin.");
         }
 
-        message.textContent = "First admin created successfully!";
+        message.textContent = "Admin account created successfully!";
 
         setTimeout(function() {
-            window.location.href = "admin.html";
+            window.location.replace("admin.html");
         }, 1500);
 
     } catch (error) {
