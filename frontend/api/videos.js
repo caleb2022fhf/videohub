@@ -1,15 +1,11 @@
 
-const {
-    verifySession,
-    getSessionToken
-} = require("../lib/auth");
+const { verifySession, getSessionToken } = require("../lib/auth");
 
 function getSupabaseHeaders() {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     return {
         "apikey": key,
-        "Authorization": `Bearer ${key}`,
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     };
@@ -19,42 +15,67 @@ function validYouTubeUrl(value) {
     try {
         const url = new URL(value);
 
-        if (!["youtube.com", "www.youtube.com", "youtu.be", "m.youtube.com"].includes(url.hostname)) {
+        const allowedHosts = [
+            "youtube.com",
+            "www.youtube.com",
+            "youtu.be",
+            "m.youtube.com"
+        ];
+
+        if (!allowedHosts.includes(url.hostname)) {
             return false;
         }
 
-        return url.hostname === "youtu.be"
-            ? url.pathname.length > 1
-            : url.pathname === "/watch" && url.searchParams.has("v") ||
-              url.pathname.startsWith("/embed/") ||
-              url.pathname.startsWith("/shorts/");
+        let videoId = "";
+
+        if (url.hostname === "youtu.be") {
+            videoId = url.pathname.slice(1);
+        } else if (url.pathname === "/watch") {
+            videoId = url.searchParams.get("v") || "";
+        } else {
+            const match = url.pathname.match(/^\/(embed|shorts|live)\/([^/]+)/);
+            videoId = match ? match[2] : "";
+        }
+
+        return /^[a-zA-Z0-9_-]{11}$/.test(videoId);
+
     } catch {
         return false;
     }
 }
 
-function getYouTubeThumbnail(url) {
+function getYouTubeThumbnail(value) {
     try {
-        const parsed = new URL(url);
-        let id = "";
+        const url = new URL(value);
+        let videoId = "";
 
-        if (parsed.hostname === "youtu.be") {
-            id = parsed.pathname.slice(1);
-        } else if (parsed.pathname === "/watch") {
-            id = parsed.searchParams.get("v") || "";
+        if (url.hostname === "youtu.be") {
+            videoId = url.pathname.slice(1);
+        } else if (url.pathname === "/watch") {
+            videoId = url.searchParams.get("v") || "";
         } else {
-            id = parsed.pathname.split("/").pop() || "";
+            const match = url.pathname.match(/^\/(embed|shorts|live)\/([^/]+)/);
+            videoId = match ? match[2] : "";
         }
 
-        return id
-            ? `https://img.youtube.com/vi/${id}/hqdefault.jpg`
-            : null;
+        if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+            return null;
+        }
+
+        return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
     } catch {
         return null;
     }
 }
 
+function validVideoId(id) {
+    return typeof id === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
 module.exports = async function handler(req, res) {
+
     const token = getSessionToken(req);
     const session = verifySession(token);
 
@@ -78,23 +99,39 @@ module.exports = async function handler(req, res) {
     }
 
     try {
+        const baseUrl = supabaseUrl.replace(/\/+$/, "");
+        const headers = getSupabaseHeaders();
+
+        // GET VIDEOS
         if (req.method === "GET") {
+
             const response = await fetch(
-                `${supabaseUrl}/rest/v1/videos?select=*&order=created_at.desc`,
-                { headers: getSupabaseHeaders() }
+                `${baseUrl}/rest/v1/videos?select=*&order=created_at.desc`,
+                { headers }
             );
 
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error("Unable to load videos.");
+                console.error("Supabase GET error:", data);
+
+                return res.status(500).json({
+                    error: "Unable to load videos."
+                });
             }
 
             return res.status(200).json(data);
         }
 
+        // ADD VIDEO
         if (req.method === "POST") {
-            const { title, description, youtube_url, published } = req.body || {};
+
+            const {
+                title,
+                description,
+                youtube_url,
+                published
+            } = req.body || {};
 
             if (
                 typeof title !== "string" ||
@@ -108,21 +145,37 @@ module.exports = async function handler(req, res) {
                 });
             }
 
+            if (
+                description !== undefined &&
+                typeof description !== "string"
+            ) {
+                return res.status(400).json({
+                    error: "Invalid description."
+                });
+            }
+
+            if (
+                published !== undefined &&
+                typeof published !== "boolean"
+            ) {
+                return res.status(400).json({
+                    error: "Invalid publish status."
+                });
+            }
+
             const video = {
                 title: title.trim(),
-                description: typeof description === "string"
-                    ? description.trim()
-                    : "",
+                description: description ? description.trim() : "",
                 youtube_url: youtube_url.trim(),
                 thumbnail_url: getYouTubeThumbnail(youtube_url),
                 published: published !== false
             };
 
             const response = await fetch(
-                `${supabaseUrl}/rest/v1/videos`,
+                `${baseUrl}/rest/v1/videos`,
                 {
                     method: "POST",
-                    headers: getSupabaseHeaders(),
+                    headers,
                     body: JSON.stringify(video)
                 }
             );
@@ -130,16 +183,28 @@ module.exports = async function handler(req, res) {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error("Unable to add video.");
+                console.error("Supabase INSERT error:", data);
+
+                return res.status(500).json({
+                    error: "Unable to add video. Check the database configuration."
+                });
             }
 
             return res.status(201).json(data);
         }
 
+        // UPDATE VIDEO
         if (req.method === "PATCH") {
-            const { id, title, description, youtube_url, published } = req.body || {};
 
-            if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) {
+            const {
+                id,
+                title,
+                description,
+                youtube_url,
+                published
+            } = req.body || {};
+
+            if (!validVideoId(id)) {
                 return res.status(400).json({
                     error: "Invalid video ID."
                 });
@@ -148,43 +213,64 @@ module.exports = async function handler(req, res) {
             const updates = {};
 
             if (title !== undefined) {
-                if (typeof title !== "string" || !title.trim() || title.length > 200) {
-                    return res.status(400).json({ error: "Invalid title." });
+                if (
+                    typeof title !== "string" ||
+                    !title.trim() ||
+                    title.length > 200
+                ) {
+                    return res.status(400).json({
+                        error: "Invalid title."
+                    });
                 }
+
                 updates.title = title.trim();
             }
 
             if (description !== undefined) {
                 if (typeof description !== "string") {
-                    return res.status(400).json({ error: "Invalid description." });
+                    return res.status(400).json({
+                        error: "Invalid description."
+                    });
                 }
+
                 updates.description = description.trim();
             }
 
             if (youtube_url !== undefined) {
-                if (typeof youtube_url !== "string" || !validYouTubeUrl(youtube_url)) {
-                    return res.status(400).json({ error: "Invalid YouTube URL." });
+                if (
+                    typeof youtube_url !== "string" ||
+                    !validYouTubeUrl(youtube_url)
+                ) {
+                    return res.status(400).json({
+                        error: "Invalid YouTube URL."
+                    });
                 }
+
                 updates.youtube_url = youtube_url.trim();
                 updates.thumbnail_url = getYouTubeThumbnail(youtube_url);
             }
 
             if (published !== undefined) {
                 if (typeof published !== "boolean") {
-                    return res.status(400).json({ error: "Invalid publish status." });
+                    return res.status(400).json({
+                        error: "Invalid publish status."
+                    });
                 }
+
                 updates.published = published;
             }
 
             if (Object.keys(updates).length === 0) {
-                return res.status(400).json({ error: "No changes provided." });
+                return res.status(400).json({
+                    error: "No changes provided."
+                });
             }
 
             const response = await fetch(
-                `${supabaseUrl}/rest/v1/videos?id=eq.${encodeURIComponent(id)}`,
+                `${baseUrl}/rest/v1/videos?id=eq.${encodeURIComponent(id)}`,
                 {
                     method: "PATCH",
-                    headers: getSupabaseHeaders(),
+                    headers,
                     body: JSON.stringify(updates)
                 }
             );
@@ -192,31 +278,43 @@ module.exports = async function handler(req, res) {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error("Unable to update video.");
+                console.error("Supabase UPDATE error:", data);
+
+                return res.status(500).json({
+                    error: "Unable to update video."
+                });
             }
 
             return res.status(200).json(data);
         }
 
+        // DELETE VIDEO
         if (req.method === "DELETE") {
+
             const id = req.query.id;
 
-            if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) {
+            if (!validVideoId(id)) {
                 return res.status(400).json({
                     error: "Invalid video ID."
                 });
             }
 
             const response = await fetch(
-                `${supabaseUrl}/rest/v1/videos?id=eq.${encodeURIComponent(id)}`,
+                `${baseUrl}/rest/v1/videos?id=eq.${encodeURIComponent(id)}`,
                 {
                     method: "DELETE",
-                    headers: getSupabaseHeaders()
+                    headers
                 }
             );
 
             if (!response.ok) {
-                throw new Error("Unable to delete video.");
+                const data = await response.text();
+
+                console.error("Supabase DELETE error:", data);
+
+                return res.status(500).json({
+                    error: "Unable to delete video."
+                });
             }
 
             return res.status(200).json({
@@ -232,7 +330,8 @@ module.exports = async function handler(req, res) {
         });
 
     } catch (error) {
-        console.error("Video API error:", error.message);
+
+        console.error("Video API error:", error);
 
         return res.status(500).json({
             error: "A server error occurred while managing videos."
