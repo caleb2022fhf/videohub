@@ -342,7 +342,11 @@ async function apiRequest(url, options = {}) {
     }
 
     if (!response.ok) {
-        throw new Error(result.error || "Request failed.");
+        throw new Error(
+            result.message ||
+            result.error ||
+            "Request failed."
+        );
     }
 
     return result;
@@ -453,7 +457,7 @@ async function publishVideo() {
     message.textContent = "";
 
     try {
-        await apiRequest("/api/videos", {
+        const result = await apiRequest("/api/videos", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -466,7 +470,8 @@ async function publishVideo() {
             })
         });
 
-        message.textContent = "Video published successfully!";
+        message.textContent =
+            result.message || "Video published successfully!";
 
         document.getElementById("title").value = "";
         document.getElementById("description").value = "";
@@ -494,7 +499,12 @@ async function loadVideos() {
     try {
         const data = await apiRequest("/api/videos");
 
-        allVideos = Array.isArray(data) ? data : [];
+        allVideos = Array.isArray(data)
+            ? data
+            : Array.isArray(data.videos)
+                ? data.videos
+                : [];
+
         displayVideos();
 
     } catch (error) {
