@@ -123,6 +123,7 @@ button:disabled {
             type="email"
             id="email"
             placeholder="Enter admin email"
+            autocomplete="username"
             required
         >
 
@@ -131,6 +132,7 @@ button:disabled {
             type="password"
             id="password"
             placeholder="Enter password"
+            autocomplete="current-password"
             required
         >
 
@@ -145,9 +147,6 @@ button:disabled {
     <a class="back" href="index.html">← Back to Website</a>
 
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
 
 <script>
 const loginForm = document.getElementById("loginForm");
@@ -165,31 +164,22 @@ loginForm.addEventListener("submit", async function(event) {
     message.textContent = "";
 
     try {
-        if (!window.supabaseClient) {
-            throw new Error("Supabase connection is missing.");
-        }
-
-        const { data, error } =
-            await window.supabaseClient.auth.signInWithPassword({
+        const response = await fetch("/api/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            credentials: "same-origin",
+            body: JSON.stringify({
                 email: email,
                 password: password
-            });
+            })
+        });
 
-        if (error) {
-            throw error;
-        }
+        const result = await response.json();
 
-        const { data: isAdmin, error: adminError } =
-            await window.supabaseClient.rpc("claim_first_video_admin");
-
-        if (adminError) {
-            await window.supabaseClient.auth.signOut();
-            throw adminError;
-        }
-
-        if (isAdmin !== true) {
-            await window.supabaseClient.auth.signOut();
-            throw new Error("You are not authorized to access the admin dashboard.");
+        if (!response.ok) {
+            throw new Error(result.error || "Login failed. Check your credentials.");
         }
 
         message.textContent = "Login successful!";
@@ -197,7 +187,8 @@ loginForm.addEventListener("submit", async function(event) {
         window.location.replace("admin.html");
 
     } catch (error) {
-        message.textContent = error.message;
+        message.textContent = error.message || "Unable to connect to the server.";
+
         loginButton.disabled = false;
         loginButton.textContent = "Login";
     }
