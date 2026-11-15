@@ -11,18 +11,21 @@ function getSupabaseHeaders() {
     };
 }
 
+function validVideoId(id) {
+    return typeof id === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
 function validYouTubeUrl(value) {
     try {
         const url = new URL(value);
 
-        const allowedHosts = [
+        if (![
             "youtube.com",
             "www.youtube.com",
             "youtu.be",
             "m.youtube.com"
-        ];
-
-        if (!allowedHosts.includes(url.hostname)) {
+        ].includes(url.hostname)) {
             return false;
         }
 
@@ -69,13 +72,55 @@ function getYouTubeThumbnail(value) {
     }
 }
 
-function validVideoId(id) {
-    return typeof id === "string" &&
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+// READ SUPABASE RESPONSE AND EXTRACT ERROR
+async function readSupabaseResponse(response) {
+    const raw = await response.text();
+
+    let data;
+
+    try {
+        data = raw ? JSON.parse(raw) : {};
+    } catch {
+        data = { message: raw || "Supabase returned an empty response." };
+    }
+
+    return {
+        ok: response.ok,
+        status: response.status,
+        data
+    };
+}
+
+// RETURN DETAILED ERROR WITHOUT SHOWING SECRET KEYS
+function sendDatabaseError(res, operation, result) {
+    const error = result.data || {};
+
+    console.error("VIDEOHUB DATABASE DEBUG:", {
+        operation,
+        httpStatus: result.status,
+        errorCode: error.code || "UNKNOWN",
+        message: error.message || "Unknown database error",
+        details: error.details || "",
+        hint: error.hint || ""
+    });
+
+    return res.status(500).json({
+        success: false,
+        error: `Supabase failed during ${operation}.`,
+        diagnostic: {
+            operation,
+            httpStatus: result.status,
+            errorCode: error.code || "UNKNOWN",
+            message: error.message || "No error message returned.",
+            details: error.details || "",
+            hint: error.hint || ""
+        }
+    });
 }
 
 module.exports = async function handler(req, res) {
 
+    // CHECK ADMIN SESSION
     const token = getSessionToken(req);
     const session = verifySession(token);
 
@@ -85,22 +130,32 @@ module.exports = async function handler(req, res) {
         (process.env.ADMIN_EMAIL || "").trim().toLowerCase()
     ) {
         return res.status(401).json({
+            success: false,
             error: "Unauthorized. Please login again."
         });
     }
 
+    // CHECK DATABASE CONFIGURATION
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
         return res.status(500).json({
-            error: "Database server configuration is missing."
+            success: false,
+            error: "Database configuration is missing.",
+            diagnostic: {
+                message: !supabaseUrl
+                    ? "SUPABASE_URL is missing."
+                    : "SUPABASE_SERVICE_ROLE_KEY is missing.",
+                solution: "Check Vercel Environment Variables."
+            }
         });
     }
 
+    const baseUrl = supabaseUrl.replace(/\/+$/, "");
+    const headers = getSupabaseHeaders();
+
     try {
-        const baseUrl = supabaseUrl.replace(/\/+$/, "");
-        const headers = getSupabaseHeaders();
 
         // GET VIDEOS
         if (req.method === "GET") {
@@ -110,17 +165,13 @@ module.exports = async function handler(req, res) {
                 { headers }
             );
 
-            const data = await response.json();
+            const result = await readSupabaseResponse(response);
 
-            if (!response.ok) {
-                console.error("Supabase GET error:", data);
-
-                return res.status(500).json({
-                    error: "Unable to load videos."
-                });
+            if (!result.ok) {
+                return sendDatabaseError(res, "GET VIDEOS", result);
             }
 
-            return res.status(200).json(data);
+            return res.status(200).json(result.data);
         }
 
         // ADD VIDEO
@@ -136,12 +187,21 @@ module.exports = async function handler(req, res) {
             if (
                 typeof title !== "string" ||
                 !title.trim() ||
-                title.length > 200 ||
+                title.length > 200
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Invalid video title."
+                });
+            }
+
+            if (
                 typeof youtube_url !== "string" ||
                 !validYouTubeUrl(youtube_url)
             ) {
                 return res.status(400).json({
-                    error: "Enter a valid title and YouTube URL."
+                    success: false,
+                    error: "Invalid YouTube URL."
                 });
             }
 
@@ -150,6 +210,7 @@ module.exports = async function handler(req, res) {
                 typeof description !== "string"
             ) {
                 return res.status(400).json({
+                    success: false,
                     error: "Invalid description."
                 });
             }
@@ -159,6 +220,7 @@ module.exports = async function handler(req, res) {
                 typeof published !== "boolean"
             ) {
                 return res.status(400).json({
+                    success: false,
                     error: "Invalid publish status."
                 });
             }
@@ -171,6 +233,8 @@ module.exports = async function handler(req, res) {
                 published: published !== false
             };
 
+            console.log("VIDEOHUB DEBUG: Sending video to Supabase.");
+
             const response = await fetch(
                 `${baseUrl}/rest/v1/videos`,
                 {
@@ -180,17 +244,19 @@ module.exports = async function handler(req, res) {
                 }
             );
 
-            const data = await response.json();
+            const result = await readSupabaseResponse(response);
 
-            if (!response.ok) {
-                console.error("Supabase INSERT error:", data);
-
-                return res.status(500).json({
-                    error: "Unable to add video. Check the database configuration."
-                });
+            if (!result.ok) {
+                return sendDatabaseError(res, "ADD VIDEO", result);
             }
 
-            return res.status(201).json(data);
+            console.log("VIDEOHUB DEBUG: Video added successfully.");
+
+            return res.status(201).json({
+                success: true,
+                message: "Video added successfully.",
+                data: result.data
+            });
         }
 
         // UPDATE VIDEO
@@ -206,6 +272,7 @@ module.exports = async function handler(req, res) {
 
             if (!validVideoId(id)) {
                 return res.status(400).json({
+                    success: false,
                     error: "Invalid video ID."
                 });
             }
@@ -219,6 +286,7 @@ module.exports = async function handler(req, res) {
                     title.length > 200
                 ) {
                     return res.status(400).json({
+                        success: false,
                         error: "Invalid title."
                     });
                 }
@@ -229,6 +297,7 @@ module.exports = async function handler(req, res) {
             if (description !== undefined) {
                 if (typeof description !== "string") {
                     return res.status(400).json({
+                        success: false,
                         error: "Invalid description."
                     });
                 }
@@ -242,6 +311,7 @@ module.exports = async function handler(req, res) {
                     !validYouTubeUrl(youtube_url)
                 ) {
                     return res.status(400).json({
+                        success: false,
                         error: "Invalid YouTube URL."
                     });
                 }
@@ -253,6 +323,7 @@ module.exports = async function handler(req, res) {
             if (published !== undefined) {
                 if (typeof published !== "boolean") {
                     return res.status(400).json({
+                        success: false,
                         error: "Invalid publish status."
                     });
                 }
@@ -262,6 +333,7 @@ module.exports = async function handler(req, res) {
 
             if (Object.keys(updates).length === 0) {
                 return res.status(400).json({
+                    success: false,
                     error: "No changes provided."
                 });
             }
@@ -275,17 +347,17 @@ module.exports = async function handler(req, res) {
                 }
             );
 
-            const data = await response.json();
+            const result = await readSupabaseResponse(response);
 
-            if (!response.ok) {
-                console.error("Supabase UPDATE error:", data);
-
-                return res.status(500).json({
-                    error: "Unable to update video."
-                });
+            if (!result.ok) {
+                return sendDatabaseError(res, "UPDATE VIDEO", result);
             }
 
-            return res.status(200).json(data);
+            return res.status(200).json({
+                success: true,
+                message: "Video updated successfully.",
+                data: result.data
+            });
         }
 
         // DELETE VIDEO
@@ -295,6 +367,7 @@ module.exports = async function handler(req, res) {
 
             if (!validVideoId(id)) {
                 return res.status(400).json({
+                    success: false,
                     error: "Invalid video ID."
                 });
             }
@@ -307,14 +380,10 @@ module.exports = async function handler(req, res) {
                 }
             );
 
-            if (!response.ok) {
-                const data = await response.text();
+            const result = await readSupabaseResponse(response);
 
-                console.error("Supabase DELETE error:", data);
-
-                return res.status(500).json({
-                    error: "Unable to delete video."
-                });
+            if (!result.ok) {
+                return sendDatabaseError(res, "DELETE VIDEO", result);
             }
 
             return res.status(200).json({
@@ -326,15 +395,21 @@ module.exports = async function handler(req, res) {
         res.setHeader("Allow", "GET, POST, PATCH, DELETE");
 
         return res.status(405).json({
+            success: false,
             error: "Method not allowed."
         });
 
     } catch (error) {
 
-        console.error("Video API error:", error);
+        console.error("VIDEOHUB SERVER DEBUG:", error);
 
         return res.status(500).json({
-            error: "A server error occurred while managing videos."
+            success: false,
+            error: "Server error occurred.",
+            diagnostic: {
+                message: error.message || "Unknown server error.",
+                type: error.name || "Error"
+            }
         });
     }
 };
