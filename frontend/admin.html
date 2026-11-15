@@ -313,9 +313,6 @@ button:disabled {
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
-
 <script>
 const dashboard = document.getElementById("dashboardContent");
 const message = document.getElementById("message");
@@ -328,73 +325,85 @@ const refreshButton = document.getElementById("refreshButton");
 
 let allVideos = [];
 
-async function checkAdminAccess() {
+async function apiRequest(url, options = {}) {
+    const response = await fetch(url, {
+        credentials: "same-origin",
+        ...options,
+        headers: {
+            ...(options.headers || {})
+        }
+    });
 
-    dashboard.style.display = "none";
+    const result = await response.json().catch(() => ({}));
 
-    if (!window.supabaseClient) {
-        message.textContent = "Supabase connection is missing.";
-        return;
+    if (response.status === 401) {
+        window.location.replace("admin-login.html");
+        throw new Error("Your session has expired. Please login again.");
     }
 
+    if (!response.ok) {
+        throw new Error(result.error || "Request failed.");
+    }
+
+    return result;
+}
+
+async function checkAdminAccess() {
+    dashboard.style.display = "none";
+
     try {
+        const result = await apiRequest("/api/session");
 
-        const { data: { session }, error } =
-            await window.supabaseClient.auth.getSession();
-
-        if (error || !session) {
-            window.location.replace("admin-login.html");
-            return;
-        }
-
-        const { data: isAdmin, error: adminError } =
-            await window.supabaseClient.rpc("is_video_admin");
-
-        if (adminError || isAdmin !== true) {
-            await window.supabaseClient.auth.signOut();
+        if (result.authenticated !== true) {
             window.location.replace("admin-login.html");
             return;
         }
 
         dashboard.style.display = "block";
-
         await loadVideos();
 
     } catch (error) {
-        message.textContent = "Could not verify admin access.";
+        message.textContent = error.message;
     }
 }
 
 logoutButton.addEventListener("click", async function() {
+    logoutButton.disabled = true;
 
-    await window.supabaseClient.auth.signOut();
+    try {
+        await apiRequest("/api/logout", {
+            method: "POST"
+        });
 
-    window.location.replace("admin-login.html");
+        window.location.replace("admin-login.html");
+
+    } catch (error) {
+        alert("Logout failed: " + error.message);
+        logoutButton.disabled = false;
+    }
 });
 
 function getYouTubeID(url) {
-
     try {
-
         const parsed = new URL(url);
         let id = null;
 
         if (
             parsed.hostname === "youtu.be" ||
-            parsed.hostname.endsWith(".youtu.be")
+            parsed.hostname === "www.youtu.be"
         ) {
             id = parsed.pathname.split("/")[1];
 
         } else if (
-            parsed.hostname === "youtube.com" ||
-            parsed.hostname.endsWith(".youtube.com")
+            [
+                "youtube.com",
+                "www.youtube.com",
+                "m.youtube.com"
+            ].includes(parsed.hostname)
         ) {
-
             if (parsed.pathname === "/watch") {
                 id = parsed.searchParams.get("v");
-
             } else {
-
                 const parts = parsed.pathname.split("/");
 
                 if (["embed", "shorts", "live"].includes(parts[1])) {
@@ -403,7 +412,9 @@ function getYouTubeID(url) {
             }
         }
 
-        return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+        return id && /^[a-zA-Z0-9_-]{11}$/.test(id)
+            ? id
+            : null;
 
     } catch {
         return null;
@@ -411,7 +422,6 @@ function getYouTubeID(url) {
 }
 
 function previewVideo() {
-
     const url = document.getElementById("youtubeUrl").value.trim();
     const id = getYouTubeID(url);
 
@@ -424,19 +434,15 @@ function previewVideo() {
         "https://www.youtube-nocookie.com/embed/" + id;
 
     document.getElementById("preview").style.display = "block";
-
     message.textContent = "Video preview is ready.";
 }
 
 async function publishVideo() {
-
     const title = document.getElementById("title").value.trim();
     const description = document.getElementById("description").value.trim();
     const url = document.getElementById("youtubeUrl").value.trim();
 
-    const id = getYouTubeID(url);
-
-    if (!title || !id) {
+    if (!title || !getYouTubeID(url)) {
         message.textContent =
             "Enter a title and a valid YouTube video link.";
         return;
@@ -446,37 +452,19 @@ async function publishVideo() {
     publishButton.textContent = "Publishing...";
     message.textContent = "";
 
-    const thumbnail = "https://img.youtube.com/vi/" +
-        id + "/hqdefault.jpg";
-
     try {
-
-        const { data: { session }, error: sessionError } =
-            await window.supabaseClient.auth.getSession();
-
-        if (sessionError || !session) {
-            window.location.replace("admin-login.html");
-            return;
-        }
-
-        const { data: isAdmin, error: adminError } =
-            await window.supabaseClient.rpc("is_video_admin");
-
-        if (adminError || isAdmin !== true) {
-            throw new Error("You are not authorized to publish videos.");
-        }
-
-        const { error } = await window.supabaseClient
-            .from("videos")
-            .insert([{
+        await apiRequest("/api/videos", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
                 title: title,
                 description: description,
                 youtube_url: url,
-                thumbnail_url: thumbnail,
                 published: true
-            }]);
-
-        if (error) throw error;
+            })
+        });
 
         message.textContent = "Video published successfully!";
 
@@ -489,75 +477,47 @@ async function publishVideo() {
         await loadVideos();
 
     } catch (error) {
-
         message.textContent = "Publishing failed: " + error.message;
 
     } finally {
-
         publishButton.disabled = false;
         publishButton.textContent = "Publish Video";
     }
 }
 
 async function loadVideos() {
-
     videoList.innerHTML =
         '<div class="empty">Loading videos...</div>';
 
     refreshButton.disabled = true;
 
     try {
+        const data = await apiRequest("/api/videos");
 
-        const { data, error } = await window.supabaseClient
-            .from("videos")
-            .select("id, title, description, youtube_url, thumbnail_url, published, created_at")
-            .order("created_at", { ascending: false });
-
-        if (error) throw error;
-
-        allVideos = data || [];
-
+        allVideos = Array.isArray(data) ? data : [];
         displayVideos();
 
     } catch (error) {
+        videoList.innerHTML = "";
 
-        console.error(error);
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Unable to load videos: " + error.message;
 
-        videoList.innerHTML =
-            '<div class="empty">Unable to load videos: ' +
-            escapeHTML(error.message) + '</div>';
+        videoList.appendChild(empty);
 
     } finally {
-
         refreshButton.disabled = false;
     }
 }
 
-function escapeHTML(value) {
-
-    return String(value || "").replace(/[&<>"']/g, function(character) {
-
-        const entities = {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#039;"
-        };
-
-        return entities[character];
-    });
-}
-
 function displayVideos() {
-
     videoList.replaceChildren();
 
     videoCount.textContent =
         allVideos.length + " video(s) in your database";
 
     if (allVideos.length === 0) {
-
         const empty = document.createElement("div");
         empty.className = "empty";
         empty.textContent = "No videos have been added yet.";
@@ -567,13 +527,11 @@ function displayVideos() {
     }
 
     allVideos.forEach(function(video) {
-
         const card = document.createElement("div");
         card.className = "video-card";
 
         const image = document.createElement("img");
-
-        const videoID = getYouTubeID(video.youtube_url);
+        const videoID = getYouTubeID(video.youtube_url || "");
 
         image.src = video.thumbnail_url ||
             (videoID
@@ -589,8 +547,7 @@ function displayVideos() {
         title.textContent = video.title || "Untitled Video";
 
         const description = document.createElement("p");
-        description.textContent =
-            video.description || "No description";
+        description.textContent = video.description || "No description";
 
         const status = document.createElement("span");
         status.className = video.published
@@ -607,28 +564,19 @@ function displayVideos() {
         const editButton = document.createElement("button");
         editButton.className = "edit-button";
         editButton.textContent = "Edit";
-
-        editButton.addEventListener("click", function() {
-            editVideo(video);
-        });
+        editButton.addEventListener("click", () => editVideo(video));
 
         const toggleButton = document.createElement("button");
         toggleButton.className = "toggle-button";
         toggleButton.textContent = video.published
             ? "Unpublish"
             : "Publish";
-
-        toggleButton.addEventListener("click", function() {
-            togglePublish(video);
-        });
+        toggleButton.addEventListener("click", () => togglePublish(video));
 
         const deleteButton = document.createElement("button");
         deleteButton.className = "delete-button";
         deleteButton.textContent = "Delete";
-
-        deleteButton.addEventListener("click", function() {
-            deleteVideo(video);
-        });
+        deleteButton.addEventListener("click", () => deleteVideo(video));
 
         actions.appendChild(editButton);
         actions.appendChild(toggleButton);
@@ -647,7 +595,6 @@ function displayVideos() {
 }
 
 async function editVideo(video) {
-
     const newTitle = prompt("Enter new video title:", video.title);
 
     if (newTitle === null) return;
@@ -671,43 +618,35 @@ async function editVideo(video) {
 
     if (newURL === null) return;
 
-    const newID = getYouTubeID(newURL.trim());
-
-    if (!newID) {
+    if (!getYouTubeID(newURL.trim())) {
         alert("Please enter a valid YouTube URL.");
         return;
     }
 
     try {
-
-        const { error } = await window.supabaseClient
-            .from("videos")
-            .update({
+        await apiRequest("/api/videos", {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                id: video.id,
                 title: newTitle.trim(),
                 description: newDescription.trim(),
-                youtube_url: newURL.trim(),
-                thumbnail_url:
-                    "https://img.youtube.com/vi/" +
-                    newID + "/hqdefault.jpg"
+                youtube_url: newURL.trim()
             })
-            .eq("id", video.id);
-
-        if (error) throw error;
+        });
 
         alert("Video updated successfully!");
-
         await loadVideos();
 
     } catch (error) {
-
         alert("Update failed: " + error.message);
     }
 }
 
 async function togglePublish(video) {
-
     const newStatus = !video.published;
-
     const action = newStatus ? "publish" : "unpublish";
 
     if (!confirm("Are you sure you want to " + action + " this video?")) {
@@ -715,26 +654,25 @@ async function togglePublish(video) {
     }
 
     try {
-
-        const { error } = await window.supabaseClient
-            .from("videos")
-            .update({
+        await apiRequest("/api/videos", {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                id: video.id,
                 published: newStatus
             })
-            .eq("id", video.id);
-
-        if (error) throw error;
+        });
 
         await loadVideos();
 
     } catch (error) {
-
         alert("Status update failed: " + error.message);
     }
 }
 
 async function deleteVideo(video) {
-
     if (!confirm(
         'Are you sure you want to permanently delete "' +
         video.title + '"?'
@@ -743,20 +681,15 @@ async function deleteVideo(video) {
     }
 
     try {
-
-        const { error } = await window.supabaseClient
-            .from("videos")
-            .delete()
-            .eq("id", video.id);
-
-        if (error) throw error;
+        await apiRequest(
+            "/api/videos?id=" + encodeURIComponent(video.id),
+            { method: "DELETE" }
+        );
 
         alert("Video deleted successfully!");
-
         await loadVideos();
 
     } catch (error) {
-
         alert("Delete failed: " + error.message);
     }
 }
@@ -765,7 +698,6 @@ document.getElementById("previewButton")
     .addEventListener("click", previewVideo);
 
 publishButton.addEventListener("click", publishVideo);
-
 refreshButton.addEventListener("click", loadVideos);
 
 checkAdminAccess();
