@@ -3,14 +3,14 @@ const { verifySession, getSessionToken } = require("../lib/auth");
 
 function getSupabaseHeaders(key) {
     const headers = {
-        "apikey": key,
+        apikey: key,
         "Content-Type": "application/json",
-        "Prefer": "return=representation"
+        Prefer: "return=representation"
     };
 
-    // Support legacy service_role JWT keys.
-    // New sb_secret_ keys must not be used as Bearer tokens.
-    if (key.startsWith("eyJ")) {
+    // Legacy service_role JWT keys require Authorization.
+    // New sb_secret_ keys are not JWTs.
+    if (!key.startsWith("sb_secret_")) {
         headers.Authorization = `Bearer ${key}`;
     }
 
@@ -24,31 +24,30 @@ function validVideoId(id) {
 
 function getYouTubeVideoId(value) {
     try {
-        const url = new URL(value);
+        const url = new URL(value.trim());
 
-        if (!["https:", "http:"].includes(url.protocol)) {
-            return null;
-        }
+        if (url.protocol !== "https:") return null;
 
-        const host = url.hostname.toLowerCase();
-
-        if (![
+        const allowedHosts = [
             "youtube.com",
             "www.youtube.com",
             "m.youtube.com",
             "youtu.be"
-        ].includes(host)) {
-            return null;
-        }
+        ];
+
+        if (!allowedHosts.includes(url.hostname)) return null;
 
         let videoId = "";
 
-        if (host === "youtu.be") {
+        if (url.hostname === "youtu.be") {
             videoId = url.pathname.split("/")[1] || "";
         } else if (url.pathname === "/watch") {
             videoId = url.searchParams.get("v") || "";
         } else {
-            const match = url.pathname.match(/^\/(embed|shorts|live)\/([^/]+)/);
+            const match = url.pathname.match(
+                /^\/(embed|shorts|live)\/([^/]+)/
+            );
+
             videoId = match ? match[2] : "";
         }
 
@@ -62,7 +61,7 @@ function getYouTubeVideoId(value) {
 }
 
 function validYouTubeUrl(value) {
-    return Boolean(getYouTubeVideoId(value));
+    return getYouTubeVideoId(value) !== null;
 }
 
 function getYouTubeThumbnail(value) {
@@ -98,14 +97,14 @@ function sendDatabaseError(res, operation, result) {
 
     console.error("VIDEOHUB DATABASE ERROR:", {
         operation,
-        status: result.status,
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
+        httpStatus: result.status,
+        errorCode: error.code || "UNKNOWN",
+        message: error.message || "Unknown database error",
+        details: error.details || "",
+        hint: error.hint || ""
     });
 
-    return res.status(result.status || 502).json({
+    return res.status(500).json({
         success: false,
         error: `Supabase failed during ${operation}.`,
         diagnostic: {
@@ -120,20 +119,8 @@ function sendDatabaseError(res, operation, result) {
 }
 
 module.exports = async function handler(req, res) {
-    res.setHeader("Cache-Control", "no-store");
 
-    const allowedMethods = ["GET", "POST", "PATCH", "DELETE"];
-
-    if (!allowedMethods.includes(req.method)) {
-        res.setHeader("Allow", allowedMethods.join(", "));
-
-        return res.status(405).json({
-            success: false,
-            error: "Method not allowed."
-        });
-    }
-
-    // Verify admin session.
+    // ADMIN SESSION CHECK
     const token = getSessionToken(req);
     const session = verifySession(token);
 
@@ -152,7 +139,7 @@ module.exports = async function handler(req, res) {
         });
     }
 
-    // Check Supabase configuration.
+    // DATABASE CONFIGURATION
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -173,8 +160,10 @@ module.exports = async function handler(req, res) {
     const headers = getSupabaseHeaders(supabaseKey);
 
     try {
-        // GET VIDEOS
+
+        // GET ALL VIDEOS FOR ADMIN
         if (req.method === "GET") {
+
             const response = await fetch(
                 `${baseUrl}/rest/v1/videos?select=*&order=created_at.desc`,
                 { headers }
@@ -189,8 +178,9 @@ module.exports = async function handler(req, res) {
             return res.status(200).json(result.data);
         }
 
-        // ADD VIDEO
+        // ADD YOUTUBE LINK
         if (req.method === "POST") {
+
             const {
                 title,
                 description,
@@ -211,21 +201,24 @@ module.exports = async function handler(req, res) {
 
             if (
                 typeof youtube_url !== "string" ||
-                !validYouTubeUrl(youtube_url.trim())
+                !validYouTubeUrl(youtube_url)
             ) {
                 return res.status(400).json({
                     success: false,
-                    error: "Please enter a valid YouTube video URL."
+                    error: "Please enter a valid HTTPS YouTube video URL."
                 });
             }
 
             if (
                 description !== undefined &&
-                (typeof description !== "string" || description.length > 5000)
+                (
+                    typeof description !== "string" ||
+                    description.length > 5000
+                )
             ) {
                 return res.status(400).json({
                     success: false,
-                    error: "Description must not exceed 5000 characters."
+                    error: "Invalid description."
                 });
             }
 
@@ -239,12 +232,13 @@ module.exports = async function handler(req, res) {
                 });
             }
 
-            // Only metadata and the YouTube URL are saved.
+            // ONLY METADATA AND YOUTUBE URL ARE SAVED.
+            // NO VIDEO FILE IS UPLOADED.
             const video = {
                 title: title.trim(),
                 description: description ? description.trim() : "",
                 youtube_url: youtube_url.trim(),
-                thumbnail_url: getYouTubeThumbnail(youtube_url.trim()),
+                thumbnail_url: getYouTubeThumbnail(youtube_url),
                 published: published !== false
             };
 
@@ -272,6 +266,7 @@ module.exports = async function handler(req, res) {
 
         // UPDATE VIDEO
         if (req.method === "PATCH") {
+
             const {
                 id,
                 title,
@@ -321,7 +316,7 @@ module.exports = async function handler(req, res) {
             if (youtube_url !== undefined) {
                 if (
                     typeof youtube_url !== "string" ||
-                    !validYouTubeUrl(youtube_url.trim())
+                    !validYouTubeUrl(youtube_url)
                 ) {
                     return res.status(400).json({
                         success: false,
@@ -330,7 +325,7 @@ module.exports = async function handler(req, res) {
                 }
 
                 updates.youtube_url = youtube_url.trim();
-                updates.thumbnail_url = getYouTubeThumbnail(youtube_url.trim());
+                updates.thumbnail_url = getYouTubeThumbnail(youtube_url);
             }
 
             if (published !== undefined) {
@@ -375,6 +370,7 @@ module.exports = async function handler(req, res) {
 
         // DELETE VIDEO
         if (req.method === "DELETE") {
+
             const id = req.query.id;
 
             if (!validVideoId(id)) {
@@ -400,11 +396,19 @@ module.exports = async function handler(req, res) {
 
             return res.status(200).json({
                 success: true,
-                message: "YouTube link deleted successfully."
+                message: "Video deleted successfully."
             });
         }
 
+        res.setHeader("Allow", "GET, POST, PATCH, DELETE");
+
+        return res.status(405).json({
+            success: false,
+            error: "Method not allowed."
+        });
+
     } catch (error) {
+
         console.error("VIDEOHUB SERVER ERROR:", error);
 
         return res.status(500).json({
