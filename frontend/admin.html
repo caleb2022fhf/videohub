@@ -24,6 +24,8 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
     border-bottom: 1px solid #252525;
 }
 
@@ -36,18 +38,12 @@ header {
 header a {
     color: white;
     text-decoration: none;
-}
-
-#logoutButton {
-    width: auto;
-    padding: 10px 18px;
-    margin: 0;
-    background: #292929;
+    margin-right: 15px;
 }
 
 .container {
-    max-width: 750px;
-    margin: 45px auto;
+    max-width: 1000px;
+    margin: 40px auto;
     padding: 20px;
 }
 
@@ -61,6 +57,7 @@ header a {
     padding: 25px;
     border: 1px solid #292929;
     border-radius: 15px;
+    margin-bottom: 40px;
 }
 
 label {
@@ -88,15 +85,13 @@ input:focus, textarea:focus {
 }
 
 button {
-    width: 100%;
-    padding: 15px;
-    margin-top: 20px;
+    padding: 13px 17px;
+    margin-top: 15px;
     border: none;
-    border-radius: 9px;
+    border-radius: 8px;
     background: linear-gradient(90deg, #8134af, #dd2a7b);
     color: white;
     font-weight: bold;
-    font-size: 16px;
     cursor: pointer;
 }
 
@@ -109,6 +104,11 @@ button:disabled {
     cursor: not-allowed;
 }
 
+#logoutButton {
+    background: #292929;
+    margin: 0;
+}
+
 .preview {
     margin-top: 25px;
     display: none;
@@ -116,7 +116,7 @@ button:disabled {
 
 .preview iframe {
     width: 100%;
-    aspect-ratio: 16/9;
+    aspect-ratio: 16 / 9;
     border: none;
     border-radius: 12px;
 }
@@ -125,10 +125,124 @@ button:disabled {
     margin-top: 15px;
     color: #ffcc66;
     line-height: 1.5;
+    overflow-wrap: anywhere;
 }
 
 #dashboardContent {
     display: none;
+}
+
+.videos-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.video-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+}
+
+.video-card {
+    background: #141414;
+    border: 1px solid #292929;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.video-card img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    display: block;
+    background: #222;
+}
+
+.video-details {
+    padding: 16px;
+}
+
+.video-details h3 {
+    margin-bottom: 10px;
+    overflow-wrap: anywhere;
+}
+
+.video-details p {
+    color: #999;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.status {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    background: #292929;
+}
+
+.status.published {
+    color: #55e69a;
+}
+
+.status.unpublished {
+    color: #ffcc66;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.actions button {
+    flex: 1;
+    min-width: 90px;
+    margin: 0;
+    font-size: 12px;
+    padding: 10px;
+}
+
+.edit-button {
+    background: #2858a5;
+}
+
+.toggle-button {
+    background: #555;
+}
+
+.delete-button {
+    background: #a52d42;
+}
+
+.empty {
+    color: #999;
+    text-align: center;
+    padding: 35px;
+    background: #141414;
+    border-radius: 10px;
+    grid-column: 1 / -1;
+}
+
+@media(max-width: 600px) {
+    .container {
+        padding: 15px;
+    }
+
+    header {
+        padding: 15px;
+    }
+
+    .video-list {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 </head>
@@ -137,6 +251,7 @@ button:disabled {
 
 <header>
     <div class="logo">VideoHub</div>
+
     <div>
         <a href="index.html">← Back to Website</a>
         <button type="button" id="logoutButton">Logout</button>
@@ -146,7 +261,7 @@ button:disabled {
 <div class="container" id="dashboardContent">
 
     <h1>Admin Dashboard</h1>
-    <p class="subtitle">Add and manage your YouTube videos.</p>
+    <p class="subtitle">Add, edit, publish and manage your YouTube videos.</p>
 
     <div class="form">
 
@@ -159,7 +274,8 @@ button:disabled {
         <textarea id="description" placeholder="Describe your video"></textarea>
 
         <label>YouTube Video Link</label>
-        <input type="url" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=...">
+        <input type="url" id="youtubeUrl"
+        placeholder="https://www.youtube.com/watch?v=...">
 
         <div class="preview" id="preview">
             <h3>Video Preview</h3>
@@ -179,6 +295,22 @@ button:disabled {
         <p id="message"></p>
 
     </div>
+
+    <div class="videos-heading">
+        <div>
+            <h2>All Videos</h2>
+            <p class="subtitle" id="videoCount">Loading videos...</p>
+        </div>
+
+        <button type="button" id="refreshButton">
+            Refresh Videos
+        </button>
+    </div>
+
+    <div class="video-list" id="videoList">
+        <div class="empty">Loading videos...</div>
+    </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -187,9 +319,17 @@ button:disabled {
 <script>
 const dashboard = document.getElementById("dashboardContent");
 const message = document.getElementById("message");
+const videoList = document.getElementById("videoList");
+const videoCount = document.getElementById("videoCount");
+
 const logoutButton = document.getElementById("logoutButton");
+const publishButton = document.getElementById("publishButton");
+const refreshButton = document.getElementById("refreshButton");
+
+let allVideos = [];
 
 async function checkAdminAccess() {
+
     dashboard.style.display = "none";
 
     if (!window.supabaseClient) {
@@ -198,6 +338,7 @@ async function checkAdminAccess() {
     }
 
     try {
+
         const { data: { session }, error } =
             await window.supabaseClient.auth.getSession();
 
@@ -217,31 +358,46 @@ async function checkAdminAccess() {
 
         dashboard.style.display = "block";
 
+        await loadVideos();
+
     } catch (error) {
         message.textContent = "Could not verify admin access.";
     }
 }
 
 logoutButton.addEventListener("click", async function() {
+
     await window.supabaseClient.auth.signOut();
+
     window.location.replace("admin-login.html");
 });
 
 function getYouTubeID(url) {
+
     try {
+
         const parsed = new URL(url);
         let id = null;
 
-        if (parsed.hostname === "youtu.be") {
-            id = parsed.pathname.split("/")[1];
-        } else if (
-            ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(parsed.hostname)
+        if (
+            parsed.hostname === "youtu.be" ||
+            parsed.hostname.endsWith(".youtu.be")
         ) {
+            id = parsed.pathname.split("/")[1];
+
+        } else if (
+            parsed.hostname === "youtube.com" ||
+            parsed.hostname.endsWith(".youtube.com")
+        ) {
+
             if (parsed.pathname === "/watch") {
                 id = parsed.searchParams.get("v");
+
             } else {
+
                 const parts = parsed.pathname.split("/");
-                if (["embed", "shorts"].includes(parts[1])) {
+
+                if (["embed", "shorts", "live"].includes(parts[1])) {
                     id = parts[2];
                 }
             }
@@ -249,12 +405,13 @@ function getYouTubeID(url) {
 
         return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
 
-    } catch (error) {
+    } catch {
         return null;
     }
 }
 
 function previewVideo() {
+
     const url = document.getElementById("youtubeUrl").value.trim();
     const id = getYouTubeID(url);
 
@@ -264,36 +421,40 @@ function previewVideo() {
     }
 
     document.getElementById("player").src =
-        "https://www.youtube.com/embed/" + id;
+        "https://www.youtube-nocookie.com/embed/" + id;
 
     document.getElementById("preview").style.display = "block";
+
     message.textContent = "Video preview is ready.";
 }
 
 async function publishVideo() {
+
     const title = document.getElementById("title").value.trim();
     const description = document.getElementById("description").value.trim();
     const url = document.getElementById("youtubeUrl").value.trim();
+
     const id = getYouTubeID(url);
 
-    const button = document.getElementById("publishButton");
-
     if (!title || !id) {
-        message.textContent = "Enter a title and a valid YouTube video link.";
+        message.textContent =
+            "Enter a title and a valid YouTube video link.";
         return;
     }
 
-    button.disabled = true;
-    button.textContent = "Publishing...";
+    publishButton.disabled = true;
+    publishButton.textContent = "Publishing...";
     message.textContent = "";
 
-    const thumbnail = "https://img.youtube.com/vi/" + id + "/hqdefault.jpg";
+    const thumbnail = "https://img.youtube.com/vi/" +
+        id + "/hqdefault.jpg";
 
     try {
-        const { data: { session } } =
+
+        const { data: { session }, error: sessionError } =
             await window.supabaseClient.auth.getSession();
 
-        if (!session) {
+        if (sessionError || !session) {
             window.location.replace("admin-login.html");
             return;
         }
@@ -315,9 +476,7 @@ async function publishVideo() {
                 published: true
             }]);
 
-        if (error) {
-            throw error;
-        }
+        if (error) throw error;
 
         message.textContent = "Video published successfully!";
 
@@ -327,16 +486,287 @@ async function publishVideo() {
         document.getElementById("preview").style.display = "none";
         document.getElementById("player").src = "";
 
+        await loadVideos();
+
     } catch (error) {
+
         message.textContent = "Publishing failed: " + error.message;
+
     } finally {
-        button.disabled = false;
-        button.textContent = "Publish Video";
+
+        publishButton.disabled = false;
+        publishButton.textContent = "Publish Video";
     }
 }
 
-document.getElementById("previewButton").addEventListener("click", previewVideo);
-document.getElementById("publishButton").addEventListener("click", publishVideo);
+async function loadVideos() {
+
+    videoList.innerHTML =
+        '<div class="empty">Loading videos...</div>';
+
+    refreshButton.disabled = true;
+
+    try {
+
+        const { data, error } = await window.supabaseClient
+            .from("videos")
+            .select("id, title, description, youtube_url, thumbnail_url, published, created_at")
+            .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        allVideos = data || [];
+
+        displayVideos();
+
+    } catch (error) {
+
+        console.error(error);
+
+        videoList.innerHTML =
+            '<div class="empty">Unable to load videos: ' +
+            escapeHTML(error.message) + '</div>';
+
+    } finally {
+
+        refreshButton.disabled = false;
+    }
+}
+
+function escapeHTML(value) {
+
+    return String(value || "").replace(/[&<>"']/g, function(character) {
+
+        const entities = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        };
+
+        return entities[character];
+    });
+}
+
+function displayVideos() {
+
+    videoList.replaceChildren();
+
+    videoCount.textContent =
+        allVideos.length + " video(s) in your database";
+
+    if (allVideos.length === 0) {
+
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No videos have been added yet.";
+
+        videoList.appendChild(empty);
+        return;
+    }
+
+    allVideos.forEach(function(video) {
+
+        const card = document.createElement("div");
+        card.className = "video-card";
+
+        const image = document.createElement("img");
+
+        const videoID = getYouTubeID(video.youtube_url);
+
+        image.src = video.thumbnail_url ||
+            (videoID
+                ? "https://img.youtube.com/vi/" + videoID + "/hqdefault.jpg"
+                : "");
+
+        image.alt = video.title || "Video thumbnail";
+
+        const details = document.createElement("div");
+        details.className = "video-details";
+
+        const title = document.createElement("h3");
+        title.textContent = video.title || "Untitled Video";
+
+        const description = document.createElement("p");
+        description.textContent =
+            video.description || "No description";
+
+        const status = document.createElement("span");
+        status.className = video.published
+            ? "status published"
+            : "status unpublished";
+
+        status.textContent = video.published
+            ? "Published"
+            : "Unpublished";
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const editButton = document.createElement("button");
+        editButton.className = "edit-button";
+        editButton.textContent = "Edit";
+
+        editButton.addEventListener("click", function() {
+            editVideo(video);
+        });
+
+        const toggleButton = document.createElement("button");
+        toggleButton.className = "toggle-button";
+        toggleButton.textContent = video.published
+            ? "Unpublish"
+            : "Publish";
+
+        toggleButton.addEventListener("click", function() {
+            togglePublish(video);
+        });
+
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "delete-button";
+        deleteButton.textContent = "Delete";
+
+        deleteButton.addEventListener("click", function() {
+            deleteVideo(video);
+        });
+
+        actions.appendChild(editButton);
+        actions.appendChild(toggleButton);
+        actions.appendChild(deleteButton);
+
+        details.appendChild(title);
+        details.appendChild(description);
+        details.appendChild(status);
+        details.appendChild(actions);
+
+        card.appendChild(image);
+        card.appendChild(details);
+
+        videoList.appendChild(card);
+    });
+}
+
+async function editVideo(video) {
+
+    const newTitle = prompt("Enter new video title:", video.title);
+
+    if (newTitle === null) return;
+
+    if (!newTitle.trim()) {
+        alert("Video title cannot be empty.");
+        return;
+    }
+
+    const newDescription = prompt(
+        "Enter new video description:",
+        video.description || ""
+    );
+
+    if (newDescription === null) return;
+
+    const newURL = prompt(
+        "Enter new YouTube video URL:",
+        video.youtube_url
+    );
+
+    if (newURL === null) return;
+
+    const newID = getYouTubeID(newURL.trim());
+
+    if (!newID) {
+        alert("Please enter a valid YouTube URL.");
+        return;
+    }
+
+    try {
+
+        const { error } = await window.supabaseClient
+            .from("videos")
+            .update({
+                title: newTitle.trim(),
+                description: newDescription.trim(),
+                youtube_url: newURL.trim(),
+                thumbnail_url:
+                    "https://img.youtube.com/vi/" +
+                    newID + "/hqdefault.jpg"
+            })
+            .eq("id", video.id);
+
+        if (error) throw error;
+
+        alert("Video updated successfully!");
+
+        await loadVideos();
+
+    } catch (error) {
+
+        alert("Update failed: " + error.message);
+    }
+}
+
+async function togglePublish(video) {
+
+    const newStatus = !video.published;
+
+    const action = newStatus ? "publish" : "unpublish";
+
+    if (!confirm("Are you sure you want to " + action + " this video?")) {
+        return;
+    }
+
+    try {
+
+        const { error } = await window.supabaseClient
+            .from("videos")
+            .update({
+                published: newStatus
+            })
+            .eq("id", video.id);
+
+        if (error) throw error;
+
+        await loadVideos();
+
+    } catch (error) {
+
+        alert("Status update failed: " + error.message);
+    }
+}
+
+async function deleteVideo(video) {
+
+    if (!confirm(
+        'Are you sure you want to permanently delete "' +
+        video.title + '"?'
+    )) {
+        return;
+    }
+
+    try {
+
+        const { error } = await window.supabaseClient
+            .from("videos")
+            .delete()
+            .eq("id", video.id);
+
+        if (error) throw error;
+
+        alert("Video deleted successfully!");
+
+        await loadVideos();
+
+    } catch (error) {
+
+        alert("Delete failed: " + error.message);
+    }
+}
+
+document.getElementById("previewButton")
+    .addEventListener("click", previewVideo);
+
+publishButton.addEventListener("click", publishVideo);
+
+refreshButton.addEventListener("click", loadVideos);
 
 checkAdminAccess();
 </script>
