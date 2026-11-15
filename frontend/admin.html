@@ -126,6 +126,7 @@ button:disabled {
     color: #ffcc66;
     line-height: 1.5;
     overflow-wrap: anywhere;
+    white-space: pre-wrap;
 }
 
 #dashboardContent {
@@ -175,6 +176,14 @@ button:disabled {
     color: #999;
     font-size: 13px;
     line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.video-link {
+    display: block;
+    color: #ff75b3;
+    font-size: 12px;
+    margin-top: 10px;
     overflow-wrap: anywhere;
 }
 
@@ -267,20 +276,22 @@ button:disabled {
 
         <h2>Add New Video</h2>
 
-        <label>Video Title</label>
-        <input type="text" id="title" placeholder="Enter video title">
+        <label for="title">Video Title</label>
+        <input type="text" id="title" maxlength="200" placeholder="Enter video title">
 
-        <label>Description</label>
-        <textarea id="description" placeholder="Describe your video"></textarea>
+        <label for="description">Description</label>
+        <textarea id="description" maxlength="5000" placeholder="Describe your video"></textarea>
 
-        <label>YouTube Video Link</label>
-        <input type="url" id="youtubeUrl"
-        placeholder="https://www.youtube.com/watch?v=...">
+        <label for="youtubeUrl">YouTube Video Link</label>
+        <input type="url" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=...">
 
         <div class="preview" id="preview">
             <h3>Video Preview</h3>
-            <iframe id="player" allowfullscreen
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+            <iframe
+                id="player"
+                title="YouTube video preview"
+                allowfullscreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
             </iframe>
         </div>
 
@@ -292,7 +303,7 @@ button:disabled {
             Publish Video
         </button>
 
-        <p id="message"></p>
+        <p id="message" role="status" aria-live="polite"></p>
 
     </div>
 
@@ -342,11 +353,24 @@ async function apiRequest(url, options = {}) {
     }
 
     if (!response.ok) {
-        throw new Error(
-            result.message ||
+        let errorMessage =
             result.error ||
-            "Request failed."
-        );
+            result.message ||
+            "Request failed.";
+
+        if (result.diagnostic) {
+            const d = result.diagnostic;
+
+            errorMessage +=
+                "\nHTTP Status: " + (d.httpStatus || "Unknown") +
+                "\nError Code: " + (d.errorCode || "Unknown") +
+                "\nDatabase Message: " + (d.message || "None") +
+                "\nDetails: " + (d.details || "None") +
+                "\nHint: " + (d.hint || "None") +
+                "\nSolution: " + (d.solution || "Check database configuration.");
+        }
+
+        throw new Error(errorMessage);
     }
 
     return result;
@@ -387,15 +411,17 @@ logoutButton.addEventListener("click", async function() {
     }
 });
 
-function getYouTubeID(url) {
+function getYouTubeID(value) {
     try {
-        const parsed = new URL(url);
+        const parsed = new URL(value.trim());
+
+        if (parsed.protocol !== "https:") {
+            return null;
+        }
+
         let id = null;
 
-        if (
-            parsed.hostname === "youtu.be" ||
-            parsed.hostname === "www.youtu.be"
-        ) {
+        if (parsed.hostname === "youtu.be") {
             id = parsed.pathname.split("/")[1];
 
         } else if (
@@ -430,12 +456,12 @@ function previewVideo() {
     const id = getYouTubeID(url);
 
     if (!id) {
-        message.textContent = "Enter a valid YouTube video link.";
+        message.textContent = "Enter a valid HTTPS YouTube video link.";
         return;
     }
 
     document.getElementById("player").src =
-        "https://www.youtube-nocookie.com/embed/" + id;
+        "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id);
 
     document.getElementById("preview").style.display = "block";
     message.textContent = "Video preview is ready.";
@@ -448,7 +474,7 @@ async function publishVideo() {
 
     if (!title || !getYouTubeID(url)) {
         message.textContent =
-            "Enter a title and a valid YouTube video link.";
+            "Enter a title and a valid HTTPS YouTube video link.";
         return;
     }
 
@@ -471,7 +497,7 @@ async function publishVideo() {
         });
 
         message.textContent =
-            result.message || "Video published successfully!";
+            result.message || "YouTube link saved successfully.";
 
         document.getElementById("title").value = "";
         document.getElementById("description").value = "";
@@ -482,7 +508,7 @@ async function publishVideo() {
         await loadVideos();
 
     } catch (error) {
-        message.textContent = "Publishing failed: " + error.message;
+        message.textContent = "Publishing failed:\n" + error.message;
 
     } finally {
         publishButton.disabled = false;
@@ -549,6 +575,7 @@ function displayVideos() {
                 : "");
 
         image.alt = video.title || "Video thumbnail";
+        image.loading = "lazy";
 
         const details = document.createElement("div");
         details.className = "video-details";
@@ -558,6 +585,13 @@ function displayVideos() {
 
         const description = document.createElement("p");
         description.textContent = video.description || "No description";
+
+        const link = document.createElement("a");
+        link.className = "video-link";
+        link.href = video.youtube_url || "#";
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = "Open YouTube video";
 
         const status = document.createElement("span");
         status.className = video.published
@@ -594,6 +628,7 @@ function displayVideos() {
 
         details.appendChild(title);
         details.appendChild(description);
+        details.appendChild(link);
         details.appendChild(status);
         details.appendChild(actions);
 
@@ -609,8 +644,8 @@ async function editVideo(video) {
 
     if (newTitle === null) return;
 
-    if (!newTitle.trim()) {
-        alert("Video title cannot be empty.");
+    if (!newTitle.trim() || newTitle.trim().length > 200) {
+        alert("Video title must contain 1 to 200 characters.");
         return;
     }
 
@@ -621,6 +656,11 @@ async function editVideo(video) {
 
     if (newDescription === null) return;
 
+    if (newDescription.length > 5000) {
+        alert("Description cannot exceed 5000 characters.");
+        return;
+    }
+
     const newURL = prompt(
         "Enter new YouTube video URL:",
         video.youtube_url
@@ -629,7 +669,7 @@ async function editVideo(video) {
     if (newURL === null) return;
 
     if (!getYouTubeID(newURL.trim())) {
-        alert("Please enter a valid YouTube URL.");
+        alert("Please enter a valid HTTPS YouTube URL.");
         return;
     }
 
@@ -651,7 +691,7 @@ async function editVideo(video) {
         await loadVideos();
 
     } catch (error) {
-        alert("Update failed: " + error.message);
+        alert("Update failed:\n" + error.message);
     }
 }
 
@@ -678,7 +718,7 @@ async function togglePublish(video) {
         await loadVideos();
 
     } catch (error) {
-        alert("Status update failed: " + error.message);
+        alert("Status update failed:\n" + error.message);
     }
 }
 
@@ -700,7 +740,7 @@ async function deleteVideo(video) {
         await loadVideos();
 
     } catch (error) {
-        alert("Delete failed: " + error.message);
+        alert("Delete failed:\n" + error.message);
     }
 }
 
