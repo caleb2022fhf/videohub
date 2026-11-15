@@ -262,7 +262,6 @@ footer {
 <body>
 
 <header>
-
     <div class="logo">VideoHub</div>
 
     <div class="search-box">
@@ -276,48 +275,36 @@ footer {
     <a href="admin-login.html" class="admin-link">
         Admin
     </a>
-
 </header>
 
 <section class="hero">
-
     <h1>Discover Amazing Videos</h1>
-
     <p>
         Watch your favorite videos anytime, anywhere.
         Explore the latest videos on VideoHub.
     </p>
-
 </section>
 
 <section class="player-section" id="playerSection">
-
     <div class="player-header">
-
         <h2 id="playerTitle">Now Playing</h2>
 
         <button class="close-player" id="closePlayer">
             Close Video
         </button>
-
     </div>
 
     <div class="video-player" id="videoPlayer"></div>
 
     <p class="player-description" id="playerDescription"></p>
-
 </section>
 
 <section class="section">
-
     <h2 class="section-title">Latest Videos</h2>
 
     <div class="video-grid" id="videoGrid">
-
         <div class="status">Loading videos...</div>
-
     </div>
-
 </section>
 
 <footer>
@@ -340,10 +327,8 @@ const closePlayer = document.getElementById("closePlayer");
 let allVideos = [];
 
 function getYouTubeID(url) {
-
     try {
         const parsedURL = new URL(url);
-
         let videoID = "";
 
         if (
@@ -356,10 +341,8 @@ function getYouTubeID(url) {
             parsedURL.hostname === "youtube.com" ||
             parsedURL.hostname.endsWith(".youtube.com")
         ) {
-
             if (parsedURL.pathname === "/watch") {
                 videoID = parsedURL.searchParams.get("v");
-
             } else {
                 const parts = parsedURL.pathname.split("/");
                 const typeIndex = parts.findIndex(part =>
@@ -372,11 +355,9 @@ function getYouTubeID(url) {
             }
         }
 
-        if (videoID && /^[a-zA-Z0-9_-]{11}$/.test(videoID)) {
-            return videoID;
-        }
-
-        return null;
+        return videoID && /^[a-zA-Z0-9_-]{11}$/.test(videoID)
+            ? videoID
+            : null;
 
     } catch {
         return null;
@@ -384,33 +365,15 @@ function getYouTubeID(url) {
 }
 
 function getThumbnail(video) {
-
-    if (video.thumbnail_url) {
-        try {
-            const thumbnailURL = new URL(video.thumbnail_url);
-
-            if (
-                thumbnailURL.protocol === "https:" &&
-                (
-                    thumbnailURL.hostname === "i.ytimg.com" ||
-                    thumbnailURL.hostname === "img.youtube.com"
-                )
-            ) {
-                return thumbnailURL.href;
-            }
-        } catch {
-        }
-    }
-
     const videoID = getYouTubeID(video.youtube_url);
 
     if (!videoID) return "";
 
-    return "https://img.youtube.com/vi/" + videoID + "/hqdefault.jpg";
+    return "https://img.youtube.com/vi/" +
+        videoID + "/hqdefault.jpg";
 }
 
 function createVideoCard(video) {
-
     const videoID = getYouTubeID(video.youtube_url);
 
     if (!videoID) return null;
@@ -446,8 +409,8 @@ function createVideoCard(video) {
     title.textContent = video.title || "Untitled Video";
 
     const description = document.createElement("p");
-    description.textContent = video.description ||
-        "Watch this video on VideoHub.";
+    description.textContent =
+        video.description || "Watch this video on VideoHub.";
 
     info.appendChild(title);
     info.appendChild(description);
@@ -463,7 +426,6 @@ function createVideoCard(video) {
 }
 
 function playVideo(video) {
-
     const videoID = getYouTubeID(video.youtube_url);
 
     if (!videoID) {
@@ -473,7 +435,8 @@ function playVideo(video) {
 
     const iframe = document.createElement("iframe");
 
-    iframe.src = "https://www.youtube-nocookie.com/embed/" +
+    iframe.src =
+        "https://www.youtube-nocookie.com/embed/" +
         videoID + "?autoplay=1&rel=0";
 
     iframe.title = video.title || "VideoHub video";
@@ -499,7 +462,6 @@ function playVideo(video) {
 }
 
 function closeVideo() {
-
     videoPlayer.replaceChildren();
     playerSection.classList.remove("active");
 }
@@ -507,11 +469,9 @@ function closeVideo() {
 closePlayer.addEventListener("click", closeVideo);
 
 function displayVideos(videos) {
-
     videoGrid.replaceChildren();
 
     if (!videos.length) {
-
         const empty = document.createElement("div");
         empty.className = "status";
         empty.textContent = "No videos found.";
@@ -521,17 +481,14 @@ function displayVideos(videos) {
     }
 
     videos.forEach(function(video) {
-
         const card = createVideoCard(video);
 
         if (card) {
             videoGrid.appendChild(card);
         }
-
     });
 
     if (!videoGrid.children.length) {
-
         const empty = document.createElement("div");
         empty.className = "status";
         empty.textContent = "No valid YouTube videos available.";
@@ -541,16 +498,13 @@ function displayVideos(videos) {
 }
 
 async function loadVideos() {
-
-    videoGrid.innerHTML =
-        '<div class="status">Loading videos...</div>';
+    if (!window.supabaseClient) {
+        videoGrid.textContent =
+            "Supabase connection is missing. Check supabase.js.";
+        return;
+    }
 
     try {
-
-        if (!window.supabaseClient) {
-            throw new Error("Supabase client is not configured.");
-        }
-
         const { data, error } = await window.supabaseClient
             .from("videos")
             .select("id, title, description, youtube_url, thumbnail_url, created_at")
@@ -563,10 +517,16 @@ async function loadVideos() {
 
         allVideos = data || [];
 
-        displayVideos(allVideos);
+        const searchTerm = searchInput.value.toLowerCase().trim();
+
+        const filteredVideos = allVideos.filter(function(video) {
+            return (video.title || "").toLowerCase().includes(searchTerm) ||
+                (video.description || "").toLowerCase().includes(searchTerm);
+        });
+
+        displayVideos(filteredVideos);
 
     } catch (error) {
-
         console.error("Video loading error:", error);
 
         videoGrid.replaceChildren();
@@ -581,23 +541,23 @@ async function loadVideos() {
 }
 
 searchInput.addEventListener("input", function() {
-
     const searchTerm = searchInput.value.toLowerCase().trim();
 
     const filteredVideos = allVideos.filter(function(video) {
-
         const title = (video.title || "").toLowerCase();
         const description = (video.description || "").toLowerCase();
 
         return title.includes(searchTerm) ||
             description.includes(searchTerm);
-
     });
 
     displayVideos(filteredVideos);
 });
 
+closeVideo();
 loadVideos();
+
+setInterval(loadVideos, 30000);
 </script>
 
 </body>
